@@ -3,12 +3,20 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 require('dotenv').config();
 const { db, auth } = require('./firebaseAdmin');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkey';
+
+// Initialize Gemini AI
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const model = genAI.getGenerativeModel({ 
+  model: "gemini-flash-lite-latest",
+  systemInstruction: "You are AstraVex, a premium, high-fidelity AI assistant. You are professional, knowledgeable, and friendly. You provide concise yet deep insights. You are the brain of the AstraVex Dashboard.",
+});
 
 // Transporter for sending emails
 const transporter = nodemailer.createTransport({
@@ -25,7 +33,8 @@ app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:3000',
   credentials: true
 }));
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(cookieParser());
 
 // --- Authentication Middleware ---
@@ -45,7 +54,7 @@ const authenticateToken = async (req, res, next) => {
 // --- Routes ---
 
 app.get('/api/hello', (req, res) => {
-  res.json({ message: 'Welcome to Chaitanya AI - System Online!' });
+  res.json({ message: 'Welcome to AstraVex - System Online!' });
 });
 
 // Step 1: Send OTP
@@ -68,19 +77,19 @@ app.post('/api/auth/send-otp', async (req, res) => {
     const mailOptions = {
       from: process.env.EMAIL_FROM,
       to: email,
-      subject: 'Your Chaitanya AI OTP',
-      text: `Your OTP for Chaitanya AI is: ${otp}. It will expire in 5 minutes.`,
+      subject: 'Your AstraVex OTP',
+      text: `Your OTP for AstraVex is: ${otp}. It will expire in 5 minutes.`,
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-          <h2 style="color: #ea580c; text-align: center;">Chaitanya AI</h2>
+          <h2 style="color: #ea580c; text-align: center;">AstraVex</h2>
           <p>Hello,</p>
-          <p>Your one-time password (OTP) for logging into Chaitanya AI is:</p>
+          <p>Your one-time password (OTP) for logging into AstraVex is:</p>
           <div style="background: #fdf2f8; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
             <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #ea580c;">${otp}</span>
           </div>
           <p style="color: #666; font-size: 14px;">This OTP will expire in 5 minutes. If you did not request this, please ignore this email.</p>
           <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-          <p style="font-size: 12px; color: #999; text-align: center;">© 2026 Chaitanya AI. All rights reserved.</p>
+          <p style="font-size: 12px; color: #999; text-align: center;">© 2026 AstraVex. All rights reserved.</p>
         </div>
       `,
     };
@@ -210,6 +219,136 @@ app.post('/api/auth/google', async (req, res) => {
 app.post('/api/auth/logout', (req, res) => {
   res.clearCookie('token');
   res.json({ message: 'Logged out' });
+});
+
+// --- AI Chat Endpoint ---
+app.post('/api/chat', authenticateToken, async (req, res) => {
+  const { message, history, image } = req.body;
+  
+  if (!message && !image) {
+    return res.status(400).json({ message: 'Message or image is required' });
+  }
+
+  const userTimestamp = new Date().toISOString();
+  const userMsgId = Date.now().toString() + '_u';
+
+  try {
+    // 1. Prepare and Clean Chat History for Gemini format
+    let chatHistory = (history || [])
+      .map(msg => ({
+        role: msg.role === 'user' ? 'user' : 'model',
+        parts: [{ text: msg.content || "" }],
+      }))
+      .filter(msg => msg.parts[0].text.trim() !== "");
+
+    // Gemini requires:
+    // - First message must be 'user'
+    // - Roles must strictly alternate (user, model, user, model...)
+    
+    // Remove leading model messages
+    while (chatHistory.length > 0 && chatHistory[0].role !== 'user') {
+      chatHistory.shift();
+    }
+
+    // Ensure alternating roles
+    const cleanedHistory = [];
+    let lastRole = null;
+    for (const msg of chatHistory) {
+      if (msg.role !== lastRole) {
+        cleanedHistory.push(msg);
+        lastRole = msg.role;
+      }
+    }
+    
+    // Ensure it doesn't end with a model message (optional but safer)
+    // Actually Gemini allows it but it's better to end with model so the next is user
+    // However, if we end with user, startChat works fine as well.
+
+    chatHistory = cleanedHistory;
+
+    const chat = model.startChat({
+      history: chatHistory,
+      generationConfig: {
+        maxOutputTokens: 1000,
+      },
+    });
+
+    let result;
+    if (image) {
+      // Handle Multi-modal (Text + Image)
+      const imageData = {
+        inlineData: {
+          data: image.includes('base64,') ? image.split(',')[1] : image,
+          mimeType: image.includes('image/') ? image.split(';')[0].split(':')[1] : 'image/png'
+        }
+      };
+      result = await model.generateContent([message || "What is in this image?", imageData]);
+    } else {
+      // Standard Text Chat
+      result = await chat.sendMessage(message);
+    }
+
+    const response = await result.response;
+    const text = response.text();
+
+    const aiResponse = { 
+      id: Date.now().toString(),
+      role: 'assistant',
+      content: text,
+      timestamp: new Date().toISOString()
+    };
+
+    // --- NEW: Save to Firestore ---
+    if (db) {
+      const userEmail = req.user.id;
+      const messagesRef = db.collection('users').doc(userEmail).collection('messages');
+      
+      // Save User Message (Use the earlier captured timestamp)
+      const userMsgToSave = {
+        id: userMsgId,
+        role: 'user',
+        content: message || "",
+        image: image || null,
+        timestamp: userTimestamp
+      };
+      await messagesRef.doc(userMsgToSave.id).set(userMsgToSave);
+
+      // Save AI Message
+      await messagesRef.doc(aiResponse.id).set(aiResponse);
+    }
+
+    res.json(aiResponse);
+  } catch (error) {
+    console.error('[AI] Gemini Error:', error);
+    const status = error.status || 500;
+    const message = error.status === 429 
+      ? 'AI Quota exceeded. Please wait a few seconds and try again.' 
+      : (error.message || 'AI failed to respond. Please check your API key.');
+    
+    res.status(status).json({ message });
+  }
+});
+
+// --- NEW: Get Chat History ---
+app.get('/api/chat/history', authenticateToken, async (req, res) => {
+  try {
+    if (!db) return res.status(500).json({ message: 'Database not initialized' });
+    
+    const userEmail = req.user.id;
+    const messagesSnapshot = await db.collection('users')
+      .doc(userEmail)
+      .collection('messages')
+      .orderBy('timestamp', 'asc')
+      .get();
+
+    const history = [];
+    messagesSnapshot.forEach(doc => history.push(doc.data()));
+    
+    res.json(history);
+  } catch (error) {
+    console.error('[HISTORY] Error:', error);
+    res.status(500).json({ message: 'Failed to fetch chat history' });
+  }
 });
 
 app.listen(PORT, () => {

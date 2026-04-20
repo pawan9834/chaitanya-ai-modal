@@ -1,8 +1,41 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Light Mode Palette */
+  --background: #f8f9fa;
+  --foreground: #111827;
+  --surface: #ffffff;
+  --surface-hover: #f3f4f6;
+  --border-dim: #e5e7eb;
+  --border-bright: #d1d5db;
+  --text-main: #111827;
+  --text-muted: #6b7280;
+  --accent: #000000;
+  --accent-foreground: #ffffff;
+  --glass-bg: rgba(255, 255, 255, 0.8);
+  --glass-border: rgba(0, 0, 0, 0.1);
+  --ai-bubble: transparent;
+  --user-bubble: #e9ecef;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Dark Mode Palette (Midnight Royal) */
+    --background: #000000;
+    --foreground: #f9fafb;
+    --surface: #09090b;
+    --surface-hover: #18181b;
+    --border-dim: #18181b;
+    --border-bright: #27272a;
+    --text-main: #f9fafb;
+    --text-muted: #a1a1aa;
+    --accent: #ffffff;
+    --accent-foreground: #000000;
+    --glass-bg: rgba(9, 9, 11, 0.8);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --ai-bubble: transparent;
+    --user-bubble: #18181b;
+  }
 }
 
 @theme inline {
@@ -12,36 +45,73 @@
   --font-mono: var(--font-geist-mono);
 }
 
+@layer base {
+
+  *,
+  ::before,
+  ::after {
+    transition-property: background-color, border-color, color, fill, stroke;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 300ms;
+  }
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;
   }
 
   .glow-border {
-    @apply border-zinc-800 focus:border-zinc-100 transition-all duration-300;
-    box-shadow: 0 0 0px rgba(255, 255, 255, 0);
+    border-color: var(--border-dim);
+    transition: all 0.3s ease;
   }
 
-  .glow-border:focus {
-    box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
+  .glow-border:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 15px rgba(var(--accent), 0.1);
   }
 
   .grok-input {
-    @apply bg-black border border-zinc-800 text-white px-4 py-3 rounded-md focus:outline-none focus:border-white transition-all;
+    background: var(--surface);
+    border: 1px solid var(--border-dim);
+    color: var(--text-main);
+    padding: 0.75rem 1rem;
+    border-radius: 0.375rem;
+    transition: all 0.3s ease;
+  }
+
+  .grok-input:focus {
+    outline: none;
+    border-color: var(--accent);
   }
 
   .grok-button-primary {
-    @apply bg-white text-black font-bold py-3 px-6 rounded-md hover:bg-zinc-200 active:scale-[0.98] transition-all;
+    background: var(--accent);
+    color: var(--accent-foreground);
+    font-weight: 700;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.375rem;
+    transition: all 0.3s ease;
+  }
+
+  .grok-button-primary:hover {
+    opacity: 0.9;
   }
 
   .grok-button-secondary {
-    @apply bg-transparent border border-zinc-800 text-white font-bold py-3 px-6 rounded-md hover:bg-zinc-900 active:scale-[0.98] transition-all;
+    background: transparent;
+    border: 1px solid var(--border-dim);
+    color: var(--text-main);
+    font-weight: 700;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.375rem;
+    transition: all 0.3s ease;
   }
 
   .grok-grid {
     background-image:
-      linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+      linear-gradient(to right, var(--glass-border) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--glass-border) 1px, transparent 1px);
     background-size: 40px 40px;
   }
 
@@ -70,21 +140,21 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+html,
 body {
   background: var(--background);
-  color: var(--foreground);
+  color: var(--text-main);
   font-family: Arial, Helvetica, sans-serif;
+  height: 100% !important;
+  width: 100% !important;
+  overflow: hidden !important;
+  margin: 0;
+  padding: 0;
 }

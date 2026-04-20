@@ -11,23 +11,23 @@ export default function MobileHeader({ onMenuClick }: MobileHeaderProps) {
   const [activeMode, setActiveMode] = useState<'ask' | 'imagine'>('ask');
 
   return (
-    <header className="lg:hidden flex items-center justify-between p-4 bg-black border-b border-zinc-900 sticky top-0 z-30">
+    <header className="lg:hidden flex items-center justify-between p-4 bg-[var(--background)] border-b border-[var(--border-dim)] sticky top-0 z-30 transition-colors duration-300">
       {/* Menu Icon */}
       <button 
         onClick={onMenuClick}
-        className="p-2 text-zinc-400 hover:text-white transition-colors"
+        className="p-2 text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors duration-300"
       >
         <Menu className="w-6 h-6" />
       </button>
 
       {/* Mode Toggle (Ask / Imagine) */}
-      <div className="flex bg-zinc-900/50 p-1 rounded-full border border-zinc-800">
+      <div className="flex bg-[var(--surface-hover)] p-1 rounded-full border border-[var(--border-dim)]">
         <button
           onClick={() => setActiveMode('ask')}
-          className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
+          className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-300 ${
             activeMode === 'ask' 
-              ? 'bg-zinc-800 text-white shadow-lg' 
-              : 'text-zinc-500 hover:text-zinc-300'
+              ? 'bg-[var(--text-main)] text-[var(--background)] shadow-lg' 
+              : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
           }`}
         >
           <Search className="w-3.5 h-3.5" />
@@ -35,10 +35,10 @@ export default function MobileHeader({ onMenuClick }: MobileHeaderProps) {
         </button>
         <button
           onClick={() => setActiveMode('imagine')}
-          className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
+          className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-300 ${
             activeMode === 'imagine' 
-              ? 'bg-zinc-800 text-white shadow-lg' 
-              : 'text-zinc-500 hover:text-zinc-300'
+              ? 'bg-[var(--text-main)] text-[var(--background)] shadow-lg' 
+              : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
           }`}
         >
           <ImageIcon className="w-3.5 h-3.5" />
@@ -47,7 +47,7 @@ export default function MobileHeader({ onMenuClick }: MobileHeaderProps) {
       </div>
 
       {/* Bot/Ghost Icon */}
-      <button className="p-2 text-zinc-400 hover:text-white transition-colors">
+      <button className="p-2 text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors duration-300">
         <Ghost className="w-6 h-6" />
       </button>
     </header>

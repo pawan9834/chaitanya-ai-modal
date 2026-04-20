@@ -1,140 +1,496 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import MobileHeader from '@/components/MobileHeader';
-import { 
-  Sparkles, 
-  Paperclip, 
-  Mic, 
+import {
+  Sparkles,
+  Paperclip,
+  Mic,
   ChevronDown,
   Video,
   Camera,
   AudioLines,
   FileSearch,
+  Copy,
+  RotateCcw,
+  ThumbsUp,
+  ThumbsDown,
+  ArrowUp,
+  Play,
+  Pause,
+  Volume2,
+  Square,
+  Check,
+  X,
+  Loader2
 } from 'lucide-react';
 
 export default function DashboardShell() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [input, setInput] = useState('');
+  const [isRecording, setIsRecording] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
 
-  // Protect the route
+  // Model Selection State - Default to Gemini
+  const [selectedModel, setSelectedModel] = useState('Gemini 1.5 Pro');
+  const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
+
+  // File Upload State
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [attachedFile, setAttachedFile] = useState<File | null>(null);
+  const [filePreview, setFilePreview] = useState<string | null>(null);
+
+  const [messages, setMessages] = useState<any[]>([]);
+
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, isTyping]);
+
+  useEffect(() => {
+    const fetchHistory = async () => {
+      if (!user) return;
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/chat/history`, {
+          credentials: 'include'
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setMessages(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch chat history:', error);
+      }
+    };
+
+    fetchHistory();
+  }, [user]);
+
+  // Model Selector Options
+  const models = ['Gemini 1.5 Pro', 'Grok 3', 'Grok 2', 'GPT-4o', 'Claude 3.5'];
+
+  // File Handling Logic
+  const handleFileClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert("Only image files are allowed.");
+      return;
+    }
+
+    const maxSize = 30 * 1024 * 1024;
+    if (file.size > maxSize) {
+      alert("File is too large. Maximum size is 30MB.");
+      return;
+    }
+
+    setAttachedFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setFilePreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removeFile = () => {
+    setAttachedFile(null);
+    setFilePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  // Recording Logic
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
+      };
+
+      recorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
+        const audioUrl = URL.createObjectURL(audioBlob);
+
+        const newMessage = {
+          id: Date.now().toString(),
+          role: 'user',
+          content: '',
+          audio: audioUrl,
+          timestamp: new Date().toISOString()
+        };
+
+        setMessages(prev => [...prev, newMessage]);
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      recorder.start();
+      setMediaRecorder(recorder);
+      setIsRecording(true);
+    } catch (err) {
+      console.error("Error accessing microphone:", err);
+      alert("Please allow microphone access to record voice messages.");
+    }
+  };
+
+  const handleSend = async () => {
+    if (!input.trim() && !attachedFile) {
+      if (!input.trim()) startRecording();
+      return;
+    }
+
+    const userMessage = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: input.trim(),
+      image: filePreview || undefined,
+      timestamp: new Date().toISOString()
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    setInput('');
+    const currentInput = input.trim();
+    const currentImage = filePreview;
+
+    setAttachedFile(null);
+    setFilePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+
+    setIsTyping(true);
+
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: currentInput,
+          image: currentImage,
+          history: messages.slice(-10) // Send last 10 messages for context
+        }),
+        credentials: 'include'
+      });
+
+      if (!response.ok) throw new Error('API Error');
+
+      const data = await response.json();
+      setMessages(prev => [...prev, data]);
+    } catch (err) {
+      console.error('Chat Error:', err);
+      setMessages(prev => [...prev, {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: "I'm sorry, I encountered an error connecting to my brain. Please check your connection or API key.",
+        timestamp: new Date().toISOString()
+      }]);
+    } finally {
+      setIsTyping(false);
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.stop();
+      setIsRecording(false);
+      setMediaRecorder(null);
+    }
+  };
+
   React.useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
     }
   }, [user, loading, router]);
 
-  // Handle loading state
   if (loading || !user) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-white animate-spin border-t-transparent"></div>
+      <div className="min-h-screen bg-[var(--background)] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-[var(--text-main)] animate-spin border-t-transparent"></div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-svh w-screen bg-black text-white font-sans selection:bg-white selection:text-black overflow-hidden relative">
-      {/* Universal Background Layer */}
+    <div className="flex h-svh w-screen bg-[var(--background)] text-[var(--text-main)] font-sans selection:bg-[var(--text-main)] selection:text-[var(--background)] overflow-hidden relative transition-colors duration-300">
       <div className="fixed inset-0 z-0 text-center pointer-events-none">
         <div className="absolute inset-0 grok-grid opacity-30"></div>
-        <div className="absolute top-1/4 -left-20 w-[40rem] h-[40rem] bg-zinc-600/10 rounded-full blur-[120px] animate-blob"></div>
-        <div className="absolute bottom-1/4 -right-20 w-[40rem] h-[40rem] bg-zinc-700/10 rounded-full blur-[120px] animate-blob [animation-delay:3s]"></div>
+        <div className="absolute top-1/4 -left-20 w-[40rem] h-[40rem] bg-zinc-600/5 rounded-full blur-[120px] animate-blob"></div>
+        <div className="absolute bottom-1/4 -right-20 w-[40rem] h-[40rem] bg-zinc-700/5 rounded-full blur-[120px] animate-blob [animation-delay:3s]"></div>
       </div>
 
-      <Sidebar 
-        mobileOpen={isMobileSidebarOpen} 
-        onClose={() => setIsMobileSidebarOpen(false)} 
+      <Sidebar
+        mobileOpen={isMobileSidebarOpen}
+        onClose={() => setIsMobileSidebarOpen(false)}
       />
 
       <main className="flex-grow z-10 flex flex-col h-full relative overflow-hidden">
         <MobileHeader onMenuClick={() => setIsMobileSidebarOpen(true)} />
 
-        {/* Main Content Area */}
-        <div className="flex-grow flex flex-col items-center px-4 md:px-8 scrollbar-hide py-4 md:py-10 justify-between md:justify-center overflow-hidden">
-          <div className="w-full max-w-4xl flex flex-col items-center h-full md:h-auto">
-            
-            <div className="flex-grow flex flex-col items-center justify-center w-full">
-              {/* Greeting (Desktop Only) */}
-              <div className="hidden md:block text-center space-y-6 mb-12">
-                <h1 className="text-6xl font-black tracking-tighter flex items-center justify-center gap-4">
-                  Hello, {user.name.split(' ')[0]} <Sparkles className="w-10 h-10 text-white" />
-                </h1>
-                <p className="text-zinc-500 text-lg font-medium">How can Chaitanya AI help you today?</p>
-              </div>
+        <div className="flex-grow overflow-y-auto scrollbar-hide flex flex-col items-center">
+          <div className="w-full max-w-3xl flex-grow px-4 py-8 flex flex-col">
 
-              {/* Mobile Central Icon (Grok Style) */}
-              <div className="md:hidden mb-12 flex items-center justify-center">
-                <div className="w-24 h-24 border-2 border-zinc-900 rounded-full flex items-center justify-center text-5xl font-black text-zinc-800">
-                  <div className="w-16 h-16 border border-zinc-800 rounded-full flex items-center justify-center rotate-12 scale-110 opacity-50">
-                      C
+            {messages.length === 0 && !isTyping ? (
+              <div className="flex-grow flex flex-col items-center justify-center">
+                <div className="hidden md:block text-center space-y-6 mb-12">
+                  <h1 className="text-6xl font-black tracking-tighter flex items-center justify-center gap-4">
+                    Hello, {user.name.split(' ')[0]} <Sparkles className="w-10 h-10" />
+                  </h1>
+                  <p className="text-[var(--text-muted)] text-lg font-medium">How can AstraVex help you today?</p>
+                </div>
+
+                <div className="md:hidden mb-12 flex items-center justify-center">
+                  <div className="w-24 h-24 border-2 border-[var(--border-dim)] rounded-full flex items-center justify-center text-5xl font-black text-[var(--text-muted)]">
+                    <div className="w-16 h-16 border border-[var(--border-dim)] rounded-full flex items-center justify-center rotate-12 scale-110 opacity-50">
+                      A
+                    </div>
+                  </div>
+                </div>
+
+                <div className="w-full overflow-x-auto pb-4 scrollbar-hide md:overflow-visible md:pb-0">
+                  <div className="flex md:grid md:grid-cols-2 gap-3 md:gap-4 min-w-max md:min-w-0 px-2 md:px-0">
+                    {[
+                      { icon: <Video className="w-5 h-5" />, title: "Create Videos", desc: "AI-generated motion" },
+                      { icon: <Camera className="w-5 h-5" />, title: "Open Camera", desc: "Visual analysis" },
+                      { icon: <AudioLines className="w-5 h-5" />, title: "Voice Mode", desc: "Real-time conversation" },
+                      { icon: <FileSearch className="w-5 h-5" />, title: "Analyze docs", desc: "Data processing" },
+                    ].map((action, i) => (
+                      <div
+                        key={i}
+                        className="p-5 md:p-6 bg-[var(--surface)] border border-[var(--border-dim)] rounded-2xl hover:border-[var(--text-main)] transition-all cursor-pointer group w-[160px] md:w-auto overflow-hidden"
+                      >
+                        <div className="text-[var(--text-muted)] group-hover:text-[var(--text-main)] mb-3 transition-colors">
+                          {action.icon}
+                        </div>
+                        <h3 className="text-[var(--text-main)] font-bold text-xs md:text-base mb-1">{action.title}</h3>
+                        <p className="text-[var(--text-muted)] text-[10px] md:text-sm">{action.desc}</p>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
+            ) : (
+              <div className="space-y-12 pb-20">
+                {messages.map((msg) => (
+                  <div key={msg.id} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} group animate-in fade-in slide-in-from-bottom-4 duration-500`}>
+                    <div className={`max-w-[100%] flex gap-4 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+                      {msg.role === 'assistant' && (
+                        <div className="w-8 h-8 rounded-full border border-[var(--border-dim)] flex items-center justify-center text-xs font-bold bg-[var(--surface)] flex-shrink-0 mt-1">
+                          A
+                        </div>
+                      )}
 
-              {/* Quick Actions Grid / Scroll */}
-              <div className="w-full overflow-x-auto pb-4 scrollbar-hide md:overflow-visible md:pb-0">
-                <div className="flex md:grid md:grid-cols-2 gap-3 md:gap-4 min-w-max md:min-w-0 px-2 md:px-0 scrollbar-hide">
-                  {[
-                    { icon: <Video className="w-5 h-5" />, title: "Create Videos", desc: "AI-generated motion", color: "text-zinc-400" },
-                    { icon: <Camera className="w-5 h-5" />, title: "Open Camera", desc: "Visual analysis", color: "text-zinc-400" },
-                    { icon: <AudioLines className="w-5 h-5" />, title: "Voice Mode", desc: "Real-time conversation", color: "text-zinc-400" },
-                    { icon: <FileSearch className="w-5 h-5" />, title: "Analyze docs", desc: "Data processing", color: "text-zinc-400" },
-                  ].map((action, i) => (
-                    <div 
-                      key={i}
-                      className="p-5 md:p-6 bg-zinc-950/50 border border-zinc-900 rounded-2xl hover:border-zinc-100 transition-all cursor-pointer group w-[160px] md:w-auto overflow-hidden"
-                    >
-                      <div className={`${action.color} group-hover:text-white mb-3 transition-colors`}>
-                        {action.icon}
+                      <div className="flex flex-col gap-3 w-full max-w-full">
+                        {msg.content && (
+                          <div className={`px-5 py-3 rounded-2xl text-sm md:text-base leading-relaxed ${msg.role === 'user'
+                              ? 'bg-[var(--user-bubble)] text-[var(--text-main)] font-medium self-end'
+                              : 'bg-[var(--ai-bubble)] text-[var(--text-main)]'
+                            }`}>
+                            {msg.content.split('\n').map((line: string, i: number) => (
+                              <p key={i} className={line.trim() === '' ? 'h-4' : 'mb-2 last:mb-0'}>
+                                {line}
+                              </p>
+                            ))}
+                          </div>
+                        )}
+
+                        {msg.image && (
+                          <div className="mt-2 rounded-2xl overflow-hidden border border-[var(--border-dim)] shadow-2xl transition-transform hover:scale-[1.01] cursor-zoom-in">
+                            <img src={msg.image} alt="AI Generated" className="w-full h-auto object-cover max-h-[400px]" />
+                          </div>
+                        )}
+
+                        {msg.audio && (
+                          <div className={`mt-2 p-4 bg-[var(--surface)] border border-[var(--border-dim)] rounded-2xl flex items-center gap-4 group/audio ${msg.role === 'user' ? 'ml-auto min-w-[280px]' : 'mr-auto min-w-[280px]'}`}>
+                            <button className="w-10 h-10 rounded-full bg-[var(--accent)] text-[var(--accent-foreground)] flex items-center justify-center hover:opacity-90 transition-opacity flex-shrink-0 shadow-lg">
+                              <Play className="w-5 h-5 fill-current" />
+                            </button>
+                            <div className="flex-grow min-w-0">
+                              <div className="h-1 bg-[var(--border-dim)] rounded-full overflow-hidden">
+                                <div className="w-0 h-full bg-[var(--accent)] opacity-50"></div>
+                              </div>
+                              <div className="flex justify-between mt-2 text-[10px] text-[var(--text-muted)] font-medium">
+                                <span>0:00</span>
+                                <span>Voice Message</span>
+                              </div>
+                            </div>
+                            <Volume2 className="w-4 h-4 text-[var(--text-muted)] flex-shrink-0" />
+                          </div>
+                        )}
+
+                        {msg.role === 'assistant' && (
+                          <div className="flex items-center gap-4 px-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button className="text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors"><Copy className="w-3.5 h-3.5" /></button>
+                            <button className="text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors"><RotateCcw className="w-3.5 h-3.5" /></button>
+                            <button className="text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors"><ThumbsUp className="w-3.5 h-3.5" /></button>
+                            <button className="text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors"><ThumbsDown className="w-3.5 h-3.5" /></button>
+                          </div>
+                        )}
                       </div>
-                      <h3 className="text-white font-bold text-xs md:text-base mb-1">{action.title}</h3>
-                      <p className="text-zinc-600 text-[10px] md:text-sm">{action.desc}</p>
                     </div>
+                  </div>
+                ))}
+
+                {/* Typing Indicator */}
+                {isTyping && (
+                  <div className="flex flex-col items-start group animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div className="flex gap-4">
+                      <div className="w-8 h-8 rounded-full border border-[var(--border-dim)] flex items-center justify-center text-xs font-bold bg-[var(--surface)] flex-shrink-0 mt-1">
+                        A
+                      </div>
+                      <div className="px-5 py-3 rounded-2xl bg-[var(--ai-bubble)] flex items-center gap-1.5">
+                        <div className="w-1.5 h-1.5 bg-[var(--text-muted)] rounded-full animate-bounce [animation-delay:-0.3s]" />
+                        <div className="w-1.5 h-1.5 bg-[var(--text-muted)] rounded-full animate-bounce [animation-delay:-0.15s]" />
+                        <div className="w-1.5 h-1.5 bg-[var(--text-muted)] rounded-full animate-bounce" />
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="w-full flex justify-center px-4 pb-4 md:pb-8">
+          <div className={`w-full max-w-3xl bg-[var(--glass-bg)] backdrop-blur-md border transition-all duration-300 p-2 rounded-3xl md:rounded-[32px] relative z-50 shadow-2xl ${isRecording ? 'border-red-500/50 shadow-[0_0_20px_rgba(239,68,68,0.1)]' : 'border-[var(--border-dim)] focus-within:border-[var(--text-main)]'
+            }`}>
+
+            {filePreview && (
+              <div className="px-4 py-2 flex items-center animate-in fade-in slide-in-from-bottom-2">
+                <div className="relative group">
+                  <img src={filePreview} alt="Upload preview" className="w-16 h-16 object-cover rounded-xl border border-[var(--border-dim)] shadow-xl" />
+                  <button
+                    onClick={removeFile}
+                    className="absolute -top-2 -right-2 bg-[var(--text-main)] text-[var(--background)] rounded-full p-1 shadow-lg hover:opacity-80 transition-opacity"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-col relative">
+              {isModelMenuOpen && (
+                <div className="absolute bottom-full left-4 mb-3 w-56 bg-[var(--surface)] border border-[var(--border-dim)] rounded-2xl shadow-2xl py-2 z-[200] animate-in fade-in zoom-in-95 duration-200 origin-bottom-left">
+                  {models.map((model) => (
+                    <button
+                      key={model}
+                      onClick={() => {
+                        setSelectedModel(model);
+                        setIsModelMenuOpen(false);
+                      }}
+                      className="w-full flex items-center justify-between px-4 py-2.5 text-sm text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--surface-hover)] transition-colors"
+                    >
+                      <span>{model}</span>
+                      {selectedModel === model && <Check className="w-4 h-4 text-[var(--text-main)]" />}
+                    </button>
                   ))}
                 </div>
-              </div>
-            </div>
+              )}
 
-            {/* Enhanced Input Bar - Anchored to bottom on mobile */}
-            <div className="w-full mt-auto mb-10 md:mb-0 md:mt-16 bg-zinc-950/80 border border-zinc-800 p-2 md:p-3 rounded-3xl md:rounded-[32px] transition-all focus-within:border-zinc-600 relative z-50">
-              <div className="flex flex-col">
-                <input 
-                  type="text" 
-                  placeholder="Ask anything..." 
-                  className="w-full bg-transparent p-4 rounded-2xl text-base md:text-lg focus:outline-none placeholder-zinc-700"
-                />
-                
-                <div className="flex items-center justify-between px-2 pb-2">
-                  <div className="flex items-center gap-1">
-                    <button className="p-2 text-zinc-500 hover:text-white transition-colors">
-                      <Paperclip className="w-5 h-5" />
-                    </button>
-                    
-                    <button className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-full text-[10px] md:text-xs font-bold transition-all text-zinc-300">
-                      Grok 3 <ChevronDown className="w-3.5 h-3.5" />
-                    </button>
+              {isRecording ? (
+                <div className="w-full p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+                    <span className="text-[var(--text-muted)] font-medium text-sm animate-pulse">Recording voice...</span>
                   </div>
-
                   <div className="flex items-center gap-2">
-                    <button className="p-2.5 bg-white text-black rounded-full hover:bg-zinc-200 transition-colors">
-                      <Mic className="w-5 h-5" />
-                    </button>
+                    <div className="flex gap-1 items-end h-4">
+                      {[1, 2, 3, 4, 5, 6].map(i => (
+                        <div key={i} className="w-1 bg-red-500/50 rounded-full animate-bounce" style={{ height: `${Math.random() * 100}%`, animationDelay: `${i * 0.1}s` }} />
+                      ))}
+                    </div>
                   </div>
+                </div>
+              ) : (
+                <input
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSend();
+                    }
+                  }}
+                  placeholder="Ask anything..."
+                  className="w-full bg-transparent p-4 rounded-2xl text-base md:text-lg focus:outline-none placeholder-[var(--text-muted)]"
+                  disabled={isTyping}
+                />
+              )}
+
+              <div className="flex items-center justify-between px-2 pb-1">
+                <div className="flex items-center gap-1">
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                  />
+                  <button
+                    onClick={handleFileClick}
+                    className="p-2 text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors disabled:opacity-30"
+                    disabled={isRecording || isTyping}
+                  >
+                    <Paperclip className="w-5 h-5" />
+                  </button>
+
+                  <button
+                    onClick={() => setIsModelMenuOpen(!isModelMenuOpen)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] md:text-xs font-bold transition-all relative ${isModelMenuOpen
+                        ? 'bg-[var(--text-main)] text-[var(--background)]'
+                        : 'bg-[var(--surface-hover)] border border-[var(--border-dim)] text-[var(--text-main)] hover:bg-[var(--border-dim)]'
+                      } disabled:opacity-30`}
+                    disabled={isRecording || isTyping}
+                  >
+                    {selectedModel} <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isModelMenuOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {isRecording ? (
+                    <button
+                      onClick={stopRecording}
+                      className="p-3 bg-red-500 text-white rounded-full hover:bg-red-600 transition-all scale-110 shadow-lg flex items-center justify-center animate-pulse"
+                    >
+                      <Square className="w-5 h-5 fill-current" />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleSend}
+                      disabled={isTyping}
+                      className={`p-2.5 rounded-full transition-all duration-300 flex items-center justify-center ${(input.trim() || attachedFile)
+                          ? 'bg-[var(--text-main)] text-[var(--background)] scale-110 shadow-lg'
+                          : 'bg-[var(--surface-hover)] text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                        } ${isTyping ? 'opacity-30 cursor-not-allowed' : ''}`}>
+                      {isTyping ? <Loader2 className="w-5 h-5 animate-spin" /> : ((input.trim() || attachedFile) ? <ArrowUp className="w-5 h-5" /> : <Mic className="w-5 h-5" />)}
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
           </div>
         </div>
-
-        {/* Footer (Desktop Only) */}
-        <footer className="hidden md:block py-6 text-zinc-700 text-[10px] uppercase tracking-widest font-bold text-center border-t border-zinc-900/50">
-           Chaitanya Enterprise AI — Powered by Chaitanya-4781A
-        </footer>
       </main>
     </div>
   );

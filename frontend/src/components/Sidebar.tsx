@@ -83,30 +83,28 @@ export default function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
       {mobileOpen && (
         <div 
           onClick={onClose}
-          className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-40 animate-in fade-in duration-300"
+          className="lg:hidden fixed inset-0 bg-black/40 backdrop-blur-sm z-40 animate-in fade-in duration-300"
         />
       )}
 
       <aside
         onClick={onClose ? undefined : toggleSidebar}
-        className={`h-screen flex flex-col bg-black border-r border-zinc-900 transition-all duration-300 ease-in-out z-50 
-          /* Mobile Overrides */
+        className={`h-screen flex flex-col bg-[var(--background)] border-r border-[var(--border-dim)] transition-all duration-300 ease-in-out z-50 
           fixed inset-y-0 left-0 transform lg:relative lg:translate-x-0
           ${mobileOpen ? 'translate-x-0 w-[280px]' : '-translate-x-full lg:flex'}
-          /* Desktop Width Logic */
           ${!mobileOpen && (isExpanded ? 'lg:w-[256px]' : 'lg:w-[56px]')}
           ${!mobileOpen && 'cursor-pointer'}
         `}
       >
         {/* Brand Logo Area */}
         <div className={`flex items-center p-4 mb-4 ${isExpanded || mobileOpen ? 'justify-between px-5' : 'justify-center'}`}>
-          <div className="w-6 h-6 border border-white flex items-center justify-center font-black text-sm flex-shrink-0">
-            C
+          <div className="w-6 h-6 border border-[var(--text-main)] flex items-center justify-center font-black text-sm flex-shrink-0 transition-colors duration-300">
+            A
           </div>
           
           {/* Mobile Close Button */}
           {mobileOpen && (
-            <button onClick={onClose} className="lg:hidden text-zinc-500 hover:text-white">
+            <button onClick={onClose} className="lg:hidden text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors duration-300">
               <X className="w-5 h-5" />
             </button>
           )}
@@ -121,7 +119,7 @@ export default function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
                 e.stopPropagation();
                 if (onClose) onClose();
               }}
-              className={`flex items-center text-zinc-400 hover:text-white hover:bg-zinc-900/50 rounded-lg transition-all cursor-pointer group h-10 
+              className={`flex items-center text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--surface-hover)] rounded-lg transition-all cursor-pointer group h-10 relative
                 ${isExpanded || mobileOpen ? 'px-3 justify-start' : 'justify-center'}`}
               title={!isExpanded && !mobileOpen ? item.label : undefined}
             >
@@ -132,9 +130,9 @@ export default function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
                 </span>
               )}
 
-              {/* Tooltip (Only when collapsed on desktop) */}
+              {/* Tooltip */}
               {!isExpanded && !mobileOpen && (
-                <span className="absolute left-14 px-2 py-1 bg-zinc-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
+                <span className="absolute left-14 px-2 py-1 bg-[var(--text-main)] text-[var(--background)] text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
                   {item.label}
                 </span>
               )}
@@ -146,7 +144,7 @@ export default function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
         <div className="flex flex-col space-y-2 pb-6 px-2">
           <div
             onClick={(e) => e.stopPropagation()}
-            className={`flex items-center text-zinc-400 hover:text-white hover:bg-zinc-900/50 rounded-lg transition-all cursor-pointer h-10 
+            className={`flex items-center text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--surface-hover)] rounded-lg transition-all cursor-pointer h-10 
               ${isExpanded || mobileOpen ? 'px-3 justify-start' : 'justify-center'}`}
           >
             <Settings className="w-5 h-5 flex-shrink-0" />
@@ -161,27 +159,27 @@ export default function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
           <div
             ref={menuRef}
             onClick={toggleProfileMenu}
-            className={`flex items-center py-2 transition-all cursor-pointer rounded-lg hover:bg-zinc-900/50 relative 
+            className={`flex items-center py-2 transition-all cursor-pointer rounded-lg hover:bg-[var(--surface-hover)] relative 
               ${isExpanded || mobileOpen ? 'px-3' : 'justify-center'}`}
           >
-            <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold border border-zinc-700 flex-shrink-0 overflow-hidden">
+            <div className="w-8 h-8 rounded-full bg-[var(--surface-hover)] flex items-center justify-center text-[10px] font-bold border border-[var(--border-dim)] flex-shrink-0 overflow-hidden">
               {user?.name?.charAt(0) || <User className="w-4 h-4" />}
             </div>
 
             {(isExpanded || mobileOpen) && (
               <div className="ml-3 overflow-visible animate-in fade-in slide-in-from-left-2 duration-300">
-                <p className="text-white text-xs font-bold truncate w-32">{user?.name || 'Guest'}</p>
-                <p className="text-zinc-500 text-[10px] truncate w-32">{user?.email}</p>
+                <p className="text-[var(--text-main)] text-xs font-bold truncate w-32">{user?.name || 'Guest'}</p>
+                <p className="text-[var(--text-muted)] text-[10px] truncate w-32">{user?.email}</p>
               </div>
             )}
 
-            {(isExpanded || mobileOpen) && <MoreHorizontal className="w-4 h-4 ml-auto text-zinc-500" />}
+            {(isExpanded || mobileOpen) && <MoreHorizontal className="w-4 h-4 ml-auto text-[var(--text-muted)]" />}
 
-            {/* Clickable Profile Menu */}
+            {/* Profile Dropdown Menu */}
             {isProfileMenuOpen && (
               <div
                 onClick={(e) => e.stopPropagation()}
-                className="absolute bottom-full left-0 w-[240px] mb-2 bg-[#262626] border border-zinc-800 rounded-2xl shadow-2xl py-2 z-[100] animate-in fade-in zoom-in-95 duration-200 origin-bottom-left"
+                className="absolute bottom-full left-0 w-[240px] mb-2 bg-[var(--surface)] border border-[var(--border-dim)] rounded-2xl shadow-2xl py-2 z-[100] animate-in fade-in zoom-in-95 duration-200 origin-bottom-left"
               >
                 {profileMenuItems.map((item, idx) => (
                   <button
@@ -192,13 +190,13 @@ export default function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
                       setIsProfileMenuOpen(false);
                       if (onClose) onClose();
                     }}
-                    className={`w-full flex items-center px-4 py-2.5 text-sm transition-colors hover:bg-zinc-800/50 group ${item.isDanger ? 'text-zinc-400 hover:text-white' : 'text-white'}`}
+                    className={`w-full flex items-center px-4 py-2.5 text-sm transition-colors hover:bg-[var(--surface-hover)] group ${item.isDanger ? 'text-[var(--text-muted)] hover:text-red-500' : 'text-[var(--text-main)]'}`}
                   >
-                    <span className="text-zinc-400 group-hover:text-white transition-colors mr-3">
+                    <span className="text-[var(--text-muted)] group-hover:text-inherit transition-colors mr-3">
                       {item.icon}
                     </span>
                     <span className="font-medium flex-grow text-left">{item.label}</span>
-                    {item.hasChevron && <ChevronRight className="w-4 h-4 text-zinc-600" />}
+                    {item.hasChevron && <ChevronRight className="w-4 h-4 text-[var(--text-muted)]" />}
                   </button>
                 ))}
               </div>

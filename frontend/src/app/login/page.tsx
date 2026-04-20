@@ -96,36 +96,36 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-black text-white font-sans selection:bg-white selection:text-black overflow-hidden relative">
+    <div className="flex min-h-screen bg-[var(--background)] text-[var(--text-main)] font-sans selection:bg-[var(--text-main)] selection:text-[var(--background)] overflow-hidden relative transition-colors duration-300">
       {/* Dynamic Background Layer */}
       <div className="fixed inset-0 z-0">
         {/* Subtle Grid */}
-        <div className="absolute inset-0 grok-grid opacity-50"></div>
+        <div className="absolute inset-0 grok-grid opacity-30"></div>
 
         {/* Animated Orbs */}
-        <div className="absolute top-1/4 -left-20 w-[40rem] h-[40rem] bg-zinc-600/20 rounded-full blur-[100px] animate-blob"></div>
-        <div className="absolute top-1/3 -right-20 w-[45rem] h-[45rem] bg-zinc-700/30 rounded-full blur-[120px] animate-blob [animation-delay:2s]"></div>
-        <div className="absolute -bottom-20 left-1/2 -translate-x-1/2 w-[50rem] h-[40rem] bg-zinc-600/10 rounded-full blur-[130px] animate-blob [animation-delay:4s]"></div>
+        <div className="absolute top-1/4 -left-20 w-[40rem] h-[40rem] bg-zinc-600/5 rounded-full blur-[100px] animate-blob"></div>
+        <div className="absolute top-1/3 -right-20 w-[45rem] h-[45rem] bg-zinc-700/5 rounded-full blur-[120px] animate-blob [animation-delay:2s]"></div>
+        <div className="absolute -bottom-20 left-1/2 -translate-x-1/2 w-[50rem] h-[40rem] bg-zinc-600/5 rounded-full blur-[130px] animate-blob [animation-delay:4s]"></div>
 
         {/* Vignette Overlay */}
-        <div className="absolute inset-0 bg-radial-gradient from-transparent to-black pointer-events-none"></div>
+        <div className="absolute inset-0 bg-radial-gradient from-transparent to-[var(--background)] opacity-60 pointer-events-none"></div>
       </div>
 
       <div className="relative z-10 flex flex-col w-full max-w-lg mx-auto px-6 py-10 justify-center">
         {/* Minimal Logo */}
         <div className="flex justify-center mb-16">
-          <div className="w-12 h-12 border-2 border-white flex items-center justify-center font-black text-2xl tracking-tighter hover:bg-white hover:text-black transition-colors duration-500 cursor-default">
-            C
+          <div className="w-12 h-12 border-2 border-[var(--text-main)] flex items-center justify-center font-black text-2xl tracking-tighter hover:bg-[var(--text-main)] hover:text-[var(--background)] transition-all duration-500 cursor-default">
+            A
           </div>
         </div>
 
         <div className="space-y-2 mb-10 text-center">
           <h1 className="text-4xl font-bold tracking-tight">
-            {step === 'email' && 'Sign in to Chaitanya AI'}
+            {step === 'email' && 'Sign in to AstraVex'}
             {step === 'otp' && 'Verify your identity'}
             {step === 'profile' && 'Complete your profile'}
           </h1>
-          <p className="text-zinc-500 text-sm">
+          <p className="text-[var(--text-muted)] text-sm font-medium">
             {step === 'email' && 'Modern AI for a new generation.'}
             {step === 'otp' && `We sent a code to ${email}`}
             {step === 'profile' && 'Tell us who you are.'}
@@ -133,15 +133,15 @@ export default function LoginPage() {
         </div>
 
         {error && (
-          <div className="mb-8 p-4 bg-zinc-900 border border-red-900/50 text-red-500 text-sm rounded-md animate-in fade-in slide-in-from-top-2">
+          <div className="mb-8 p-4 bg-[var(--surface)] border border-red-500/20 text-red-500 text-sm rounded-xl animate-in fade-in slide-in-from-top-2">
             {error}
           </div>
         )}
 
         <div className="space-y-6">
-          <form onSubmit={step === 'email' ? handleSendOtp : step === 'otp' ? handleVerifyOtp : handleRegister} className="space-y-4">
+          <div className="space-y-4">
             {step === 'email' && (
-              <div className="space-y-4">
+              <form onSubmit={handleSendOtp} className="space-y-4">
                 <input
                   type="email"
                   placeholder="Email address"
@@ -154,11 +154,11 @@ export default function LoginPage() {
                   {loading ? 'Processing...' : 'Next'}
                   {!loading && <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />}
                 </button>
-              </div>
+              </form>
             )}
 
             {step === 'otp' && (
-              <div className="space-y-4">
+              <form onSubmit={handleVerifyOtp} className="space-y-4">
                 <input
                   type="text"
                   placeholder="6-digit code"
@@ -171,11 +171,11 @@ export default function LoginPage() {
                 <button type="submit" disabled={loading} className="w-full grok-button-primary">
                   {loading ? 'Verifying...' : 'Verify'}
                 </button>
-              </div>
+              </form>
             )}
 
             {step === 'profile' && (
-              <div className="space-y-4">
+              <form onSubmit={handleRegister} className="space-y-4">
                 <input
                   type="text"
                   placeholder="Full name"
@@ -193,23 +193,23 @@ export default function LoginPage() {
                   onChange={(e) => setProfession(e.target.value)}
                 />
                 <button type="submit" disabled={loading} className="w-full grok-button-primary">
-                  {loading ? 'Saving...' : 'Enter Chaitanya AI'}
+                  {loading ? 'Saving...' : 'Enter AstraVex'}
                 </button>
-              </div>
+              </form>
             )}
-          </form>
+          </div>
 
           {step === 'email' && (
             <>
               <div className="relative py-4 flex items-center">
-                <div className="flex-grow border-t border-zinc-900"></div>
-                <span className="flex-shrink mx-4 text-zinc-600 text-[10px] font-bold uppercase tracking-widest">or</span>
-                <div className="flex-grow border-t border-zinc-900"></div>
+                <div className="flex-grow border-t border-[var(--border-dim)]"></div>
+                <span className="flex-shrink mx-4 text-[var(--text-muted)] text-[10px] font-bold uppercase tracking-widest">or</span>
+                <div className="flex-grow border-t border-[var(--border-dim)]"></div>
               </div>
 
               <button
                 onClick={onGoogleLogin}
-                className="w-full grok-button-secondary flex items-center justify-center gap-3 group border-zinc-800 hover:border-zinc-100"
+                className="w-full grok-button-secondary flex items-center justify-center gap-3 group border-[var(--border-dim)] hover:border-[var(--text-main)] transition-colors"
               >
                 <GoogleIcon />
                 Continue with Google
@@ -220,7 +220,7 @@ export default function LoginPage() {
           {step !== 'email' && (
             <button
               onClick={() => setStep('email')}
-              className="w-full flex items-center justify-center gap-2 text-zinc-500 hover:text-white transition-colors text-xs py-2"
+              className="w-full flex items-center justify-center gap-2 text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors text-xs py-2"
             >
               <ChevronLeft className="w-4 h-4" />
               Change email
@@ -229,12 +229,11 @@ export default function LoginPage() {
         </div>
 
         <footer className="mt-24 text-center">
-          <p className="text-zinc-600 text-[10px] leading-relaxed max-w-xs mx-auto">
-            By signing in, you agree to our <span className="text-zinc-400 underline cursor-pointer">Terms</span> and <span className="text-zinc-400 underline cursor-pointer">Privacy Policy</span>.
+          <p className="text-[var(--text-muted)] text-[10px] leading-relaxed max-w-xs mx-auto">
+            By signing in, you agree to our <span className="text-[var(--text-main)] underline cursor-pointer font-medium">Terms</span> and <span className="text-[var(--text-main)] underline cursor-pointer font-medium">Privacy Policy</span>.
           </p>
         </footer>
       </div>
     </div>
   );
 }
-

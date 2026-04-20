@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Chaitanya AI",
+  title: "AstraVex",
   description: "Advanced Agentic Coding Assistant",
 };
 import { AuthProvider } from "@/context/AuthContext";
@@ -27,9 +27,9 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased overflow-hidden`}
     >
-      <body className="min-h-full flex flex-col">
+      <body className="h-full w-full overflow-hidden flex flex-col">
         <AuthProvider>
           {children}
         </AuthProvider>
