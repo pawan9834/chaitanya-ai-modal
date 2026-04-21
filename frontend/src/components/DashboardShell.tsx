@@ -5,6 +5,8 @@ import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import MobileHeader from '@/components/MobileHeader';
+import SearchModal from './SearchModal';
+import SettingsModal from './SettingsModal';
 import {
   Sparkles,
   Paperclip,
@@ -49,6 +51,8 @@ export default function DashboardShell() {
   const [messages, setMessages] = useState<any[]>([]);
   const [conversations, setConversations] = useState<any[]>([]);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showCopyAlert, setShowCopyAlert] = useState(false);
 
@@ -308,13 +312,22 @@ export default function DashboardShell() {
     );
   }
 
+  const handleProfileClick = () => {
+    if (window.innerWidth < 1024) {
+      router.push('/settings');
+      setIsMobileSidebarOpen(false);
+    } else {
+      setIsSettingsModalOpen(true);
+    }
+  };
+
   return (
-    <div className="flex h-svh w-screen bg-[var(--background)] text-[var(--text-main)] font-sans selection:bg-[var(--text-main)] selection:text-[var(--background)] overflow-hidden relative transition-colors duration-300">
-      {/* Copy Alert */}
-      <div className={`fixed top-6 left-1/2 -translate-x-1/2 z-[300] transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${showCopyAlert ? 'translate-y-0 opacity-100' : '-translate-y-12 opacity-0 pointer-events-none'}`}>
-        <div className="bg-[var(--surface)] border border-[var(--border-dim)] px-5 py-3 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] flex items-center gap-3 backdrop-blur-xl">
-          <div className="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center">
-            <Check className="w-4 h-4 text-green-500" />
+    <div className="flex h-screen bg-[var(--background)] text-[var(--text-main)] overflow-hidden font-sans selection:bg-[var(--accent)]/30">
+      {/* Toast Alert for Copy */}
+      <div className={`fixed top-8 left-1/2 -translate-x-1/2 z-[2000] transition-all duration-500 transform ${showCopyAlert ? 'translate-y-0 opacity-100 scale-100' : '-translate-y-10 opacity-0 scale-95 pointer-events-none'}`}>
+        <div className="flex items-center gap-3 px-6 py-3 bg-[var(--surface)] border border-[var(--border-dim)] rounded-2xl shadow-2xl backdrop-blur-xl">
+          <div className="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center text-green-500">
+            <Check className="w-4 h-4" />
           </div>
           <span className="text-sm font-medium pr-2">Copied to clipboard</span>
         </div>
@@ -339,6 +352,23 @@ export default function DashboardShell() {
           setCurrentConversationId(id);
           setIsMobileSidebarOpen(false);
         }}
+        onSearchClick={() => setIsSearchModalOpen(true)}
+        onProfileClick={handleProfileClick}
+      />
+
+      <SearchModal 
+        isOpen={isSearchModalOpen}
+        onClose={() => setIsSearchModalOpen(false)}
+        conversations={conversations}
+        onConversationSelect={(id) => {
+          setCurrentConversationId(id);
+          setIsSearchModalOpen(false);
+        }}
+      />
+
+      <SettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
       />
 
       <main className="flex-grow z-10 flex flex-col h-full relative overflow-hidden">

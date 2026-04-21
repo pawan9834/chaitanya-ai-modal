@@ -27,15 +27,19 @@ interface SidebarProps {
   mobileOpen?: boolean;
   onClose?: () => void;
   onHomeClick?: () => void;
+  onSearchClick?: () => void;
+  onProfileClick?: () => void;
   conversations?: any[];
   currentConversationId?: string | null;
   onConversationSelect?: (id: string) => void;
 }
 
-export default function Sidebar({ 
-  mobileOpen = false, 
-  onClose, 
+export default function Sidebar({
+  mobileOpen = false,
+  onClose,
   onHomeClick,
+  onSearchClick,
+  onProfileClick,
   conversations = [],
   currentConversationId,
   onConversationSelect
@@ -51,7 +55,6 @@ export default function Sidebar({
     { icon: <Search className="w-5 h-5 flex-shrink-0" />, label: 'Explore' },
     { icon: <Bell className="w-5 h-5 flex-shrink-0" />, label: 'Notifications' },
     { icon: <Mail className="w-5 h-5 flex-shrink-0" />, label: 'Messages' },
-    { icon: <Sparkles className="w-5 h-5 flex-shrink-0" />, label: 'Grok' },
     { icon: <Users className="w-5 h-5 flex-shrink-0" />, label: 'Communities' },
     { icon: <User className="w-5 h-5 flex-shrink-0" />, label: 'Profile' },
   ];
@@ -93,27 +96,38 @@ export default function Sidebar({
     <>
       {/* Mobile Backdrop */}
       {mobileOpen && (
-        <div 
+        <div
           onClick={onClose}
           className="lg:hidden fixed inset-0 bg-black/40 backdrop-blur-sm z-40 animate-in fade-in duration-300"
         />
       )}
 
       <aside
-        onClick={onClose ? undefined : toggleSidebar}
         className={`h-screen flex flex-col bg-[var(--background)] border-r border-[var(--border-dim)] transition-all duration-300 ease-in-out z-50 
           fixed inset-y-0 left-0 transform lg:relative lg:translate-x-0
           ${mobileOpen ? 'translate-x-0 w-[280px]' : '-translate-x-full lg:flex'}
           ${!mobileOpen && (isExpanded ? 'lg:w-[256px]' : 'lg:w-[56px]')}
-          ${!mobileOpen && 'cursor-pointer'}
         `}
       >
+        {/* Toggle Button for Desktop */}
+        {!mobileOpen && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleSidebar();
+            }}
+            className={`absolute -right-3 top-20 w-6 h-6 bg-[var(--background)] border border-[var(--border-dim)] rounded-full flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-main)] transition-all z-[60] shadow-md
+              ${!isExpanded ? 'rotate-180' : ''}`}
+          >
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        )}
         {/* Brand Logo Area */}
         <div className={`flex items-center p-4 mb-4 ${isExpanded || mobileOpen ? 'justify-between px-5' : 'justify-center'}`}>
           <div className="w-6 h-6 border border-[var(--text-main)] flex items-center justify-center font-black text-sm flex-shrink-0 transition-colors duration-300">
             A
           </div>
-          
+
           {/* Mobile Close Button */}
           {mobileOpen && (
             <button onClick={onClose} className="lg:hidden text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors duration-300">
@@ -123,7 +137,7 @@ export default function Sidebar({
         </div>
 
         {/* Nav Items */}
-        <nav className="flex-grow space-y-1 px-2 overflow-y-auto custom-scrollbar">
+        <nav className="flex-grow space-y-1 px-2 overflow-y-auto scrollbar-hide">
           {navItems.map((item, idx) => (
             <div
               key={idx}
@@ -132,10 +146,18 @@ export default function Sidebar({
                 if (item.label === 'Home' && onHomeClick) {
                   onHomeClick();
                 }
+                if (item.label === 'Explore' && onSearchClick) {
+                  onSearchClick();
+                }
+                if (item.label === 'Profile' && onProfileClick) {
+                  onProfileClick();
+                }
                 if (onClose) onClose();
               }}
               className={`flex items-center text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--surface-hover)] rounded-lg transition-all cursor-pointer group h-10 relative
-                ${isExpanded || mobileOpen ? 'px-3 justify-start' : 'justify-center'}`}
+                ${isExpanded || mobileOpen ? 'px-3 justify-start' : 'justify-center'}
+                ${item.label === 'Explore' ? 'hidden lg:flex' : 'flex'}
+              `}
               title={!isExpanded && !mobileOpen ? item.label : undefined}
             >
               {item.icon}
@@ -167,8 +189,8 @@ export default function Sidebar({
                       if (onConversationSelect) onConversationSelect(conv.id);
                     }}
                     className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all group relative
-                      ${currentConversationId === conv.id 
-                        ? 'bg-[var(--surface-hover)] text-[var(--text-main)]' 
+                      ${currentConversationId === conv.id
+                        ? 'bg-[var(--surface-hover)] text-[var(--text-main)]'
                         : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--surface-hover)]'
                       }`}
                   >
@@ -186,7 +208,11 @@ export default function Sidebar({
         {/* Bottom Section */}
         <div className="flex flex-col space-y-2 pb-6 px-2">
           <div
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onProfileClick?.();
+              if (onClose) onClose();
+            }}
             className={`flex items-center text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--surface-hover)] rounded-lg transition-all cursor-pointer h-10 
               ${isExpanded || mobileOpen ? 'px-3 justify-start' : 'justify-center'}`}
           >
@@ -205,8 +231,12 @@ export default function Sidebar({
             className={`flex items-center py-2 transition-all cursor-pointer rounded-lg hover:bg-[var(--surface-hover)] relative 
               ${isExpanded || mobileOpen ? 'px-3' : 'justify-center'}`}
           >
-            <div className="w-8 h-8 rounded-full bg-[var(--surface-hover)] flex items-center justify-center text-[10px] font-bold border border-[var(--border-dim)] flex-shrink-0 overflow-hidden">
-              {user?.name?.charAt(0) || <User className="w-4 h-4" />}
+            <div className="w-8 h-8 rounded-full bg-[var(--surface-hover)] flex items-center justify-center text-[10px] font-bold border border-[var(--border-dim)] flex-shrink-0 overflow-hidden shadow-sm">
+              {user?.picture ? (
+                <img src={user.picture} alt="Avatar" className="w-full h-full object-cover" />
+              ) : (
+                <User className="w-4 h-4 text-[var(--text-muted)]" />
+              )}
             </div>
 
             {(isExpanded || mobileOpen) && (
@@ -229,7 +259,11 @@ export default function Sidebar({
                     key={idx}
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (item.isDanger) handleLogout();
+                      if (item.label === 'Settings' && onProfileClick) {
+                        onProfileClick();
+                      } else if (item.isDanger) {
+                        handleLogout();
+                      }
                       setIsProfileMenuOpen(false);
                       if (onClose) onClose();
                     }}

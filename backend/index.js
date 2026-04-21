@@ -204,7 +204,8 @@ app.post('/api/auth/google', async (req, res) => {
       userData = { email, name, profession: 'Other', picture, createdAt: new Date().toISOString() };
       await db.collection('users').doc(email).set(userData);
     } else {
-      userData = userDoc.data();
+      userData = { ...userDoc.data(), picture }; // Always update picture to keep it fresh
+      await db.collection('users').doc(email).update({ picture });
     }
 
     const token = jwt.sign({ email, id: email }, JWT_SECRET, { expiresIn: '7d' });

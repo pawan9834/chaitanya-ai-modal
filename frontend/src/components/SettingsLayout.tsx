@@ -1,0 +1,143 @@
+'use client';
+
+import React, { useState } from 'react';
+import { motion } from 'framer-motion';
+import {
+  User,
+  Wand2,
+  MousePointer2,
+  Sliders,
+  Database,
+  Zap,
+  Globe,
+  Languages,
+} from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+
+export type Category = 'Account' | 'Appearance' | 'Behavior' | 'Customize' | 'Data Controls';
+
+interface SettingsLayoutProps {
+  isMobile?: boolean;
+}
+
+export default function SettingsLayout({ isMobile = false }: SettingsLayoutProps) {
+  const { user } = useAuth();
+  const [activeCategory, setActiveCategory] = useState<Category>('Account');
+
+  const categories = [
+    { id: 'Account' as Category, icon: <User className="w-5 h-5" />, label: 'Account' },
+    { id: 'Appearance' as Category, icon: <Wand2 className="w-5 h-5" />, label: 'Appearance' },
+    { id: 'Behavior' as Category, icon: <MousePointer2 className="w-5 h-5" />, label: 'Behavior' },
+    { id: 'Customize' as Category, icon: <Sliders className="w-5 h-5" />, label: 'Customize' },
+    { id: 'Data Controls' as Category, icon: <Database className="w-5 h-5" />, label: 'Data Controls' },
+  ];
+
+  const renderContent = () => {
+    switch (activeCategory) {
+      case 'Account':
+        return (
+          <div className="space-y-10 animate-in fade-in slide-in-from-right-4 duration-500">
+            {/* User Profile Section */}
+            <div className="flex flex-col sm:flex-row items-center gap-6">
+              <div className="w-20 h-20 rounded-full bg-[var(--surface-hover)] border border-[var(--border-dim)] flex items-center justify-center overflow-hidden shadow-inner flex-shrink-0">
+                {user?.picture ? (
+                  <img src={user.picture} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  <User className="w-10 h-10 text-[var(--text-muted)] opacity-50" />
+                )}
+              </div>
+              <div className="flex-grow text-center sm:text-left">
+                <h3 className="text-xl font-black text-[var(--text-main)] tracking-tight mb-0.5">
+                  {user?.name || 'User'}
+                </h3>
+                <p className="text-[var(--text-muted)] text-sm font-medium">
+                  {user?.email || 'user@example.com'}
+                </p>
+              </div>
+              <button className="px-5 py-2.5 bg-black/5 hover:bg-black/10 border border-[var(--border-dim)] rounded-full text-xs font-black text-[var(--text-main)] transition-all uppercase tracking-widest">
+                Manage
+              </button>
+            </div>
+
+
+
+            {/* Multi-line Settings */}
+            <div className="pt-2 space-y-2">
+              <div className="flex items-center justify-between p-2">
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-bold text-[var(--text-main)]">Language</span>
+                  <Languages className="w-4 h-4 text-[var(--text-muted)] opacity-50" />
+                </div>
+                <button className="text-[var(--text-muted)] hover:text-[var(--text-main)] font-black text-[10px] uppercase tracking-[0.2em] px-5 py-2 bg-[var(--surface-hover)] border border-[var(--border-dim)] rounded-full transition-all">Change</button>
+              </div>
+
+              <div className="flex items-center justify-between p-2">
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-bold text-[var(--text-main)]">Birth Year</span>
+                  <span className="text-sm text-[var(--text-muted)] font-black ml-1">1997</span>
+                </div>
+                <button className="text-[var(--text-muted)] hover:text-[var(--text-main)] font-black text-[10px] uppercase tracking-[0.2em] px-5 py-2 bg-[var(--surface-hover)] border border-[var(--border-dim)] rounded-full transition-all">Change</button>
+              </div>
+            </div>
+
+            <div className="pt-20 text-center">
+              <p className="text-[9px] font-black tracking-[0.3em] text-[var(--text-muted)]/20 uppercase select-all">
+                41686e94-79a3-49db-82d0-e66ce51c910d
+              </p>
+            </div>
+          </div>
+        );
+      default:
+        return (
+          <div className="h-full flex flex-col items-center justify-center p-12 text-center animate-in fade-in duration-500">
+            <div className="w-16 h-16 rounded-3xl bg-[var(--surface-hover)] flex items-center justify-center mb-6">
+              {categories.find(c => c.id === activeCategory)?.icon}
+            </div>
+            <h3 className="text-xl font-bold text-[var(--text-main)]/80 mb-2">{activeCategory} Settings</h3>
+            <p className="text-[var(--text-muted)] text-sm max-w-xs mx-auto">
+              Customization for {activeCategory.toLowerCase()} is coming soon to AstraVex.
+            </p>
+          </div>
+        );
+    }
+  };
+
+  return (
+    <div className={`flex flex-grow overflow-hidden ${isMobile ? 'flex-col' : ''}`}>
+      {/* Sidebar - Categories */}
+      <div className={`${isMobile ? 'w-full border-b flex overflow-x-auto overflow-y-hidden whitespace-nowrap scrollbar-hide py-2 px-1' : 'w-[280px] border-r overflow-y-auto scrollbar-hide p-4 space-y-1'} border-[var(--border-dim)] bg-[var(--surface)]/50`}>
+        {categories.map((cat) => (
+          <button
+            key={cat.id}
+            onClick={() => setActiveCategory(cat.id)}
+            className={`${isMobile ? 'inline-flex flex-col items-center justify-center px-4 py-2 min-w-[80px]' : 'w-full text-left p-4 rounded-2xl flex items-center gap-4'} transition-all group relative overflow-hidden ${activeCategory === cat.id
+                ? 'bg-[var(--surface-hover)] ring-1 ring-[var(--border-bright)]'
+                : 'hover:bg-[var(--surface-hover)]'
+              }`}
+          >
+            <div className={`transition-colors ${activeCategory === cat.id ? 'text-[var(--text-main)]' : 'text-[var(--text-muted)] group-hover:text-[var(--text-main)]'} ${isMobile ? 'mb-1' : 'p-1.5 rounded-lg'}`}>
+              {cat.icon}
+            </div>
+            <span className={`text-[10px] md:text-sm font-bold tracking-tight transition-colors ${activeCategory === cat.id ? 'text-[var(--text-main)]' : 'text-[var(--text-muted)] group-hover:text-[var(--text-main)]'}`}>
+              {cat.label}
+            </span>
+
+            {activeCategory === cat.id && (
+              <motion.div
+                layoutId="active-cat-pill"
+                className={`absolute bg-[var(--text-main)] rounded-full ${isMobile ? 'bottom-0 left-4 right-4 h-0.5' : 'left-0 top-3 bottom-3 w-1'}`}
+              />
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Main Content Pane */}
+      <div className={`flex-grow overflow-y-auto scrollbar-hide bg-black/10 ${isMobile ? 'p-6' : 'p-10'}`}>
+        <div className="max-w-2xl mx-auto h-full">
+          {renderContent()}
+        </div>
+      </div>
+    </div>
+  );
+}
