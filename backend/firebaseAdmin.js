@@ -12,9 +12,11 @@ try {
       credential: admin.credential.cert(serviceAccount)
     });
     console.log('Firebase Admin: SUCCESS (JSON File)');
+  } else if (process.env.FIREBASE_SERVICE_ACCOUNT_BASE64) {
     console.log('Firebase Admin: Attempting Base64 Init...');
     // Remove any whitespace picked up during copy-pasting
-    const base64 = process.env.FIREBASE_SERVICE_ACCOUNT_BASE64.replace(/\s/g, '');
+    const rawB64 = process.env.FIREBASE_SERVICE_ACCOUNT_BASE64 || "";
+    const base64 = rawB64.replace(/\s/g, '');
     let jsonString = Buffer.from(base64, 'base64').toString('utf-8');
     
     // CRITICAL: Handle literal newlines that might be inside the decoded string
