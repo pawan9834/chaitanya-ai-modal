@@ -13,10 +13,20 @@ if (fs.existsSync(serviceAccountPath)) {
   console.log('Firebase Admin initialized successfully using JSON file.');
 } else if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_PRIVATE_KEY) {
   // SECURE PRODUCTION MODE: Use Environment Variables (Render)
+  let privateKey = process.env.FIREBASE_PRIVATE_KEY;
+  
+  // Robust cleanup for common paste errors
+  if (privateKey) {
+    // Remove accidental wrapping quotes
+    privateKey = privateKey.replace(/^['"]|['"]$/g, '');
+    // Ensure actual newlines are present
+    privateKey = privateKey.replace(/\\n/g, '\n');
+  }
+
   const serviceAccount = {
     projectId: process.env.FIREBASE_PROJECT_ID,
     clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-    privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'), // Fix for Render newline issues
+    privateKey: privateKey,
   };
 
   admin.initializeApp({
