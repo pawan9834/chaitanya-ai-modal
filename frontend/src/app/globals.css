@@ -18,24 +18,22 @@
   --user-bubble: #e9ecef;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    /* Dark Mode Palette (Midnight Royal) */
-    --background: #000000;
-    --foreground: #f9fafb;
-    --surface: #09090b;
-    --surface-hover: #18181b;
-    --border-dim: #18181b;
-    --border-bright: #27272a;
-    --text-main: #f9fafb;
-    --text-muted: #a1a1aa;
-    --accent: #ffffff;
-    --accent-foreground: #000000;
-    --glass-bg: rgba(9, 9, 11, 0.8);
-    --glass-border: rgba(255, 255, 255, 0.1);
-    --ai-bubble: transparent;
-    --user-bubble: #18181b;
-  }
+:root.dark {
+  /* Dark Mode Palette (Midnight Royal) */
+  --background: #000000;
+  --foreground: #f9fafb;
+  --surface: #09090b;
+  --surface-hover: #18181b;
+  --border-dim: #18181b;
+  --border-bright: #27272a;
+  --text-main: #f9fafb;
+  --text-muted: #a1a1aa;
+  --accent: #ffffff;
+  --accent-foreground: #000000;
+  --glass-bg: rgba(9, 9, 11, 0.8);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --ai-bubble: transparent;
+  --user-bubble: #18181b;
 }
 
 @theme inline {

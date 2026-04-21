@@ -9,10 +9,10 @@ export default function SettingsPage() {
   const router = useRouter();
 
   return (
-    <div className="min-h-screen bg-black flex flex-col overflow-y-auto">
+    <div className="min-h-screen bg-[var(--background)] flex flex-col">
       {/* Header */}
       <header className="px-4 py-6 border-b border-zinc-800/50 flex items-center gap-4 sticky top-0 bg-black/80 backdrop-blur-xl z-20">
-        <button 
+        <button
           onClick={() => router.back()}
           className="p-2 hover:bg-zinc-800 rounded-full text-white transition-all"
         >

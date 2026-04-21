@@ -31,9 +31,19 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+app.use((req, res, next) => {
+  console.log(`[REQUEST] ${new Date().toISOString()} - ${req.method} ${req.url} - Origin: ${req.headers.origin}`);
+  next();
+});
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true
+  origin: function (origin, callback) {
+    // Allow any origin for development/mobile testing
+    callback(null, true);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
 }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
@@ -123,24 +133,36 @@ app.post('/api/auth/verify-otp', async (req, res) => {
   try {
     if (!db) return res.status(500).json({ message: 'Database not initialized' });
 
-    const otpDoc = await db.collection('otps').doc(email).get();
-    if (!otpDoc.exists) return res.status(400).json({ message: 'OTP not found' });
+    // Hardcoded bypass for Easy Login (test@example.com / 123456)
+    const isTestAccount = email === 'test@example.com' && otp === '123456';
 
-    const data = otpDoc.data();
-    if (data.otp !== otp || Date.now() > data.expiresAt) {
-      return res.status(400).json({ message: 'Invalid or expired OTP' });
+    if (!isTestAccount) {
+      const otpDoc = await db.collection('otps').doc(email).get();
+      if (!otpDoc.exists) return res.status(400).json({ message: 'OTP not found' });
+
+      const data = otpDoc.data();
+      if (data.otp !== otp || Date.now() > data.expiresAt) {
+        return res.status(400).json({ message: 'Invalid or expired OTP' });
+      }
     }
 
     // Check if user exists
     const userDoc = await db.collection('users').doc(email).get();
     const exists = userDoc.exists;
 
-    // Delete OTP after verification
-    await db.collection('otps').doc(email).delete();
+    // Delete OTP after verification (if not test account)
+    if (!isTestAccount) {
+      await db.collection('otps').doc(email).delete();
+    }
 
-    if (exists) {
-      const userData = userDoc.data();
-      const token = jwt.sign({ email: userData.email, id: email }, JWT_SECRET, { expiresIn: '7d' });
+    if (exists || isTestAccount) {
+      const userData = userDoc.exists ? userDoc.data() : { 
+        email: 'test@example.com', 
+        name: 'Guest User', 
+        profession: 'Tester',
+        createdAt: new Date().toISOString() 
+      };
+      const token = jwt.sign({ email: userData.email, id: userData.email }, JWT_SECRET, { expiresIn: '7d' });
       res.cookie('token', token, { httpOnly: true, secure: false, maxAge: 7 * 24 * 60 * 60 * 1000 });
       return res.json({ registered: true, user: userData });
     } else {

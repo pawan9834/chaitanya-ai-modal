@@ -95,6 +95,30 @@ export default function LoginPage() {
     router.push('/');
   };
 
+  const handleEasyLogin = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: 'test@example.com', otp: '123456' }),
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setUser(data.user);
+        router.push('/');
+      } else {
+        setError(data.message || 'Easy Login failed');
+      }
+    } catch (err: any) {
+      setError(`Connection Error: ${err.message || 'Unknown'}. URL: ${process.env.NEXT_PUBLIC_BACKEND_URL}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="flex min-h-screen bg-[var(--background)] text-[var(--text-main)] font-sans selection:bg-[var(--text-main)] selection:text-[var(--background)] overflow-hidden relative transition-colors duration-300">
       {/* Dynamic Background Layer */}
@@ -200,21 +224,16 @@ export default function LoginPage() {
           </div>
 
           {step === 'email' && (
-            <>
-              <div className="relative py-4 flex items-center">
-                <div className="flex-grow border-t border-[var(--border-dim)]"></div>
-                <span className="flex-shrink mx-4 text-[var(--text-muted)] text-[10px] font-bold uppercase tracking-widest">or</span>
-                <div className="flex-grow border-t border-[var(--border-dim)]"></div>
-              </div>
-
+            <div className="pt-4">
               <button
-                onClick={onGoogleLogin}
-                className="w-full grok-button-secondary flex items-center justify-center gap-3 group border-[var(--border-dim)] hover:border-[var(--text-main)] transition-colors"
+                onClick={handleEasyLogin}
+                disabled={loading}
+                className="w-full py-4 border border-dashed border-[var(--border-dim)] rounded-2xl text-[var(--text-muted)] hover:text-[var(--text-main)] hover:border-[var(--text-main)] transition-all flex items-center justify-center gap-2 group text-xs font-bold uppercase tracking-widest"
               >
-                <GoogleIcon />
-                Continue with Google
+                <ArrowRight className="w-4 h-4 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                Try as Guest
               </button>
-            </>
+            </div>
           )}
 
           {step !== 'email' && (

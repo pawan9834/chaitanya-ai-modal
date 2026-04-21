@@ -54,7 +54,35 @@ export default function DashboardShell() {
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [showCopyAlert, setShowCopyAlert] = useState(false);
+  const [toastConfig, setToastConfig] = useState<{ show: boolean, message: string, type: 'success' | 'info' }>({
+    show: false,
+    message: '',
+    type: 'success'
+  });
+
+  // Guest Chat Limit State
+  const [guestChatCount, setGuestChatCount] = useState(0);
+  const [isLimitModalOpen, setIsLimitModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (user?.email === 'test@example.com') {
+      const savedCount = localStorage.getItem('guest_chat_count');
+      if (savedCount) setGuestChatCount(parseInt(savedCount));
+    }
+  }, [user]);
+
+  const incrementGuestChatCount = () => {
+    const newCount = guestChatCount + 1;
+    setGuestChatCount(newCount);
+    localStorage.setItem('guest_chat_count', newCount.toString());
+  };
+
+  const showToast = (message: string, type: 'success' | 'info' = 'success') => {
+    setToastConfig({ show: true, message, type });
+    setTimeout(() => {
+      setToastConfig(prev => ({ ...prev, show: false }));
+    }, 2000);
+  };
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -111,10 +139,9 @@ export default function DashboardShell() {
   const copyToClipboard = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
-    setShowCopyAlert(true);
+    showToast('Copied to clipboard', 'success');
     setTimeout(() => {
       setCopiedId(null);
-      setShowCopyAlert(false);
     }, 2000);
   };
 
@@ -236,6 +263,12 @@ export default function DashboardShell() {
       return;
     }
 
+    // Enforce Guest Limit
+    if (user?.email === 'test@example.com' && guestChatCount >= 2) {
+      setIsLimitModalOpen(true);
+      return;
+    }
+
     const userMessage = {
       id: Date.now().toString(),
       role: 'user',
@@ -276,6 +309,11 @@ export default function DashboardShell() {
       if (!currentConversationId && data.conversationId) {
         setCurrentConversationId(data.conversationId);
         fetchConversations(); // Refresh list to show the new conversation title
+      }
+
+      // Increment guest count on successful send
+      if (user?.email === 'test@example.com') {
+        incrementGuestChatCount();
       }
     } catch (err) {
       console.error('Chat Error:', err);
@@ -323,13 +361,13 @@ export default function DashboardShell() {
 
   return (
     <div className="flex h-screen bg-[var(--background)] text-[var(--text-main)] overflow-hidden font-sans selection:bg-[var(--accent)]/30">
-      {/* Toast Alert for Copy */}
-      <div className={`fixed top-8 left-1/2 -translate-x-1/2 z-[2000] transition-all duration-500 transform ${showCopyAlert ? 'translate-y-0 opacity-100 scale-100' : '-translate-y-10 opacity-0 scale-95 pointer-events-none'}`}>
+      {/* Universal Toast Alert */}
+      <div className={`fixed top-8 left-1/2 -translate-x-1/2 z-[2000] transition-all duration-500 transform ${toastConfig.show ? 'translate-y-0 opacity-100 scale-100' : '-translate-y-10 opacity-0 scale-95 pointer-events-none'}`}>
         <div className="flex items-center gap-3 px-6 py-3 bg-[var(--surface)] border border-[var(--border-dim)] rounded-2xl shadow-2xl backdrop-blur-xl">
-          <div className="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center text-green-500">
-            <Check className="w-4 h-4" />
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${toastConfig.type === 'success' ? 'bg-green-500/10 text-green-500' : 'bg-blue-500/10 text-blue-500'}`}>
+            {toastConfig.type === 'success' ? <Check className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
           </div>
-          <span className="text-sm font-medium pr-2">Copied to clipboard</span>
+          <span className="text-sm font-medium pr-2">{toastConfig.message}</span>
         </div>
       </div>
 
@@ -354,6 +392,7 @@ export default function DashboardShell() {
         }}
         onSearchClick={() => setIsSearchModalOpen(true)}
         onProfileClick={handleProfileClick}
+        onComingSoon={() => showToast('Feature coming soon!', 'info')}
       />
 
       <SearchModal 
@@ -370,6 +409,35 @@ export default function DashboardShell() {
         isOpen={isSettingsModalOpen}
         onClose={() => setIsSettingsModalOpen(false)}
       />
+
+      {/* Guest Limit Modal */}
+      {isLimitModalOpen && (
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="w-full max-w-md bg-[var(--surface)] border border-[var(--border-dim)] rounded-[2.5rem] p-8 shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="w-16 h-16 rounded-3xl bg-orange-500/10 flex items-center justify-center mb-6 mx-auto">
+              <Sparkles className="w-8 h-8 text-orange-500" />
+            </div>
+            <h2 className="text-2xl font-black text-center mb-3 tracking-tight">Upgrade Your Experience</h2>
+            <p className="text-[var(--text-muted)] text-center mb-8 leading-relaxed">
+              You've enjoyed your 2 free guest chats. Sign in now to unlock unlimited messaging, image generation, and chat history.
+            </p>
+            <div className="space-y-3">
+              <button 
+                onClick={() => router.push('/login')}
+                className="w-full py-4 bg-[var(--text-main)] text-[var(--background)] rounded-2xl font-black text-sm uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all shadow-xl"
+              >
+                Sign In Now
+              </button>
+              <button 
+                onClick={() => setIsLimitModalOpen(false)}
+                className="w-full py-4 bg-transparent border border-[var(--border-dim)] text-[var(--text-muted)] rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-[var(--surface-hover)] transition-all"
+              >
+                Maybe Later
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <main className="flex-grow z-10 flex flex-col h-full relative overflow-hidden">
         <MobileHeader onMenuClick={() => setIsMobileSidebarOpen(true)} />
@@ -404,9 +472,12 @@ export default function DashboardShell() {
                     ].map((action, i) => (
                       <div
                         key={i}
-                        className="p-5 md:p-6 bg-[var(--surface)] border border-[var(--border-dim)] rounded-2xl hover:border-[var(--text-main)] transition-all cursor-pointer group w-[160px] md:w-auto overflow-hidden"
+                        className="p-5 md:p-6 bg-[var(--surface)] border border-[var(--border-dim)] rounded-2xl transition-all cursor-not-allowed opacity-60 group w-[160px] md:w-auto overflow-hidden relative"
                       >
-                        <div className="text-[var(--text-muted)] group-hover:text-[var(--text-main)] mb-3 transition-colors">
+                        <div className="absolute top-3 right-3 px-2 py-0.5 bg-[var(--surface-hover)] border border-[var(--border-dim)] rounded-full text-[8px] font-black uppercase tracking-widest text-[var(--text-muted)]">
+                          Soon
+                        </div>
+                        <div className="text-[var(--text-muted)] mb-3 transition-colors">
                           {action.icon}
                         </div>
                         <h3 className="text-[var(--text-main)] font-bold text-xs md:text-base mb-1">{action.title}</h3>
@@ -466,10 +537,10 @@ export default function DashboardShell() {
                         )}
 
                         {msg.role === 'assistant' && (
-                          <div className="flex items-center gap-4 px-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="flex items-center gap-6 px-2 mt-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
                             <button 
                               onClick={() => copyToClipboard(msg.content, msg.id)}
-                              className="text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors"
+                              className="text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors p-1"
                               title="Copy to clipboard"
                             >
                               {copiedId === msg.id ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}

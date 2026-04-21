@@ -11,8 +11,13 @@ import {
   Zap,
   Globe,
   Languages,
+  Sun,
+  Moon,
+  Monitor,
+  MessageSquare,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useTheme } from '@/context/ThemeContext';
 
 export type Category = 'Account' | 'Appearance' | 'Behavior' | 'Customize' | 'Data Controls';
 
@@ -22,6 +27,7 @@ interface SettingsLayoutProps {
 
 export default function SettingsLayout({ isMobile = false }: SettingsLayoutProps) {
   const { user } = useAuth();
+  const { theme, setTheme } = useTheme();
   const [activeCategory, setActiveCategory] = useState<Category>('Account');
 
   const categories = [
@@ -54,8 +60,8 @@ export default function SettingsLayout({ isMobile = false }: SettingsLayoutProps
                   {user?.email || 'user@example.com'}
                 </p>
               </div>
-              <button className="px-5 py-2.5 bg-black/5 hover:bg-black/10 border border-[var(--border-dim)] rounded-full text-xs font-black text-[var(--text-main)] transition-all uppercase tracking-widest">
-                Manage
+              <button className="px-5 py-2.5 bg-black/5 border border-[var(--border-dim)] rounded-full text-[10px] font-black text-[var(--text-muted)] cursor-not-allowed uppercase tracking-widest">
+                Coming Soon
               </button>
             </div>
 
@@ -76,7 +82,7 @@ export default function SettingsLayout({ isMobile = false }: SettingsLayoutProps
                   <span className="text-sm font-bold text-[var(--text-main)]">Birth Year</span>
                   <span className="text-sm text-[var(--text-muted)] font-black ml-1">1997</span>
                 </div>
-                <button className="text-[var(--text-muted)] hover:text-[var(--text-main)] font-black text-[10px] uppercase tracking-[0.2em] px-5 py-2 bg-[var(--surface-hover)] border border-[var(--border-dim)] rounded-full transition-all">Change</button>
+                <button className="text-[var(--text-muted)] font-black text-[10px] uppercase tracking-[0.2em] px-5 py-2 bg-[var(--surface-hover)] border border-[var(--border-dim)] rounded-full cursor-not-allowed opacity-50">Coming Soon</button>
               </div>
             </div>
 
@@ -84,6 +90,107 @@ export default function SettingsLayout({ isMobile = false }: SettingsLayoutProps
               <p className="text-[9px] font-black tracking-[0.3em] text-[var(--text-muted)]/20 uppercase select-all">
                 41686e94-79a3-49db-82d0-e66ce51c910d
               </p>
+            </div>
+          </div>
+        );
+      case 'Data Controls':
+        return (
+          <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+            <div>
+              <h3 className="text-xl font-black text-[var(--text-main)] tracking-tight mb-2">Manage your data</h3>
+              <p className="text-[var(--text-muted)] text-sm mb-8">Take control of your privacy and platform data.</p>
+            </div>
+            
+            {[
+              {
+                title: 'Delete All Conversations',
+                desc: 'Instantly wipe your entire chat history and memory.',
+                icon: <MessageSquare className="w-5 h-5" />,
+                action: 'Delete Conversations',
+                danger: false
+              },
+              {
+                title: 'Delete All Imagine Media',
+                desc: 'Remove all AI-generated images and video assets.',
+                icon: <Zap className="w-5 h-5" />,
+                action: 'Delete Media',
+                danger: false
+              },
+              {
+                title: 'Delete Account',
+                desc: 'Permanently remove your identity and all associated data from AstraVex. This cannot be undone.',
+                icon: <User className="w-5 h-5" />,
+                action: 'Delete Account',
+                danger: true
+              }
+            ].map((item, i) => (
+              <div 
+                key={i} 
+                className="p-6 bg-[var(--surface)] border border-[var(--border-dim)] rounded-[2rem] flex flex-col gap-6 group hover:border-[var(--border-bright)] transition-all"
+              >
+                <div className="flex items-start gap-4">
+                  <div className={`p-3 rounded-2xl bg-[var(--surface-hover)] border border-[var(--border-dim)] ${item.danger ? 'text-red-500/50' : 'text-[var(--text-muted)]'}`}>
+                    {item.icon}
+                  </div>
+                  <div className="space-y-1">
+                    <h4 className="text-sm font-bold text-[var(--text-main)]">{item.title}</h4>
+                    <p className="text-[var(--text-muted)] text-xs leading-relaxed">
+                      {item.desc}
+                    </p>
+                  </div>
+                </div>
+                <button 
+                  disabled
+                  className="w-full py-4 rounded-2xl text-[10px] font-black border border-[var(--border-dim)] bg-black/5 text-[var(--text-muted)] cursor-not-allowed uppercase tracking-widest"
+                >
+                  Coming Soon
+                </button>
+              </div>
+            ))}
+          </div>
+        );
+      case 'Appearance':
+        return (
+          <div className="space-y-10 animate-in fade-in slide-in-from-right-4 duration-500">
+            <div>
+              <h3 className="text-xl font-black text-[var(--text-main)] tracking-tight mb-6">Theme</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {[
+                  { id: 'light', icon: <Sun className="w-5 h-5" />, label: 'Light' },
+                  { id: 'dark', icon: <Moon className="w-5 h-5" />, label: 'Dark' },
+                  { id: 'system', icon: <Monitor className="w-5 h-5" />, label: 'System' },
+                ].map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => setTheme(t.id as any)}
+                    className={`p-6 bg-[var(--surface)] border-2 rounded-3xl flex flex-col items-center gap-4 transition-all ${theme === t.id
+                        ? 'border-[var(--text-main)] bg-[var(--surface-hover)]'
+                        : 'border-[var(--border-dim)] hover:border-[var(--border-bright)]'
+                      }`}
+                  >
+                    <div className={`${theme === t.id ? 'text-[var(--text-main)]' : 'text-[var(--text-muted)]'}`}>
+                      {t.icon}
+                    </div>
+                    <span className={`text-sm font-bold ${theme === t.id ? 'text-[var(--text-main)]' : 'text-[var(--text-muted)]'}`}>
+                      {t.label}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="pt-6">
+              <h3 className="text-xl font-black text-[var(--text-main)] tracking-tight mb-2">Accessibility</h3>
+              <p className="text-[var(--text-muted)] text-sm mb-6">Make AstraVex easier to see and use.</p>
+              
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-2">
+                  <span className="text-sm font-bold text-[var(--text-main)]">High Contrast</span>
+                  <div className="w-10 h-5 bg-[var(--surface-hover)] border border-[var(--border-dim)] rounded-full relative cursor-not-allowed opacity-50">
+                    <div className="absolute left-1 top-1 w-3 h-3 bg-[var(--text-muted)] rounded-full"></div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         );

@@ -10,10 +10,22 @@ if (fs.existsSync(serviceAccountPath)) {
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount)
   });
-  console.log('Firebase Admin initialized successfully.');
+  console.log('Firebase Admin initialized successfully using JSON file.');
+} else if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_PRIVATE_KEY) {
+  // SECURE PRODUCTION MODE: Use Environment Variables (Render)
+  const serviceAccount = {
+    projectId: process.env.FIREBASE_PROJECT_ID,
+    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+    privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'), // Fix for Render newline issues
+  };
+
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount)
+  });
+  console.log('Firebase Admin initialized successfully using Environment Variables.');
 } else {
-  console.warn('WARNING: Firebase Service Account file not found. Database operations will fail.');
-  console.warn(`Place your service account JSON at: ${serviceAccountPath}`);
+  console.warn('WARNING: Firebase credentials not found. Database operations will fail.');
+  console.warn('Deploying to Render? Add FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY to your env variables.');
 }
 
 const db = admin.apps.length ? admin.firestore() : null;

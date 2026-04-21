@@ -32,6 +32,7 @@ interface SidebarProps {
   conversations?: any[];
   currentConversationId?: string | null;
   onConversationSelect?: (id: string) => void;
+  onComingSoon?: () => void;
 }
 
 export default function Sidebar({
@@ -42,7 +43,8 @@ export default function Sidebar({
   onProfileClick,
   conversations = [],
   currentConversationId,
-  onConversationSelect
+  onConversationSelect,
+  onComingSoon
 }: SidebarProps) {
   const { user, setUser } = useAuth();
   const router = useRouter();
@@ -152,6 +154,9 @@ export default function Sidebar({
                 if (item.label === 'Profile' && onProfileClick) {
                   onProfileClick();
                 }
+                if (['Notifications', 'Messages', 'Communities'].includes(item.label)) {
+                  onComingSoon?.();
+                }
                 if (onClose) onClose();
               }}
               className={`flex items-center text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--surface-hover)] rounded-lg transition-all cursor-pointer group h-10 relative
@@ -162,9 +167,16 @@ export default function Sidebar({
             >
               {item.icon}
               {(isExpanded || mobileOpen) && (
-                <span className="ml-4 text-sm font-medium whitespace-nowrap animate-in fade-in slide-in-from-left-2 duration-300">
-                  {item.label}
-                </span>
+                <div className="ml-4 flex items-center justify-between flex-grow">
+                  <span className="text-sm font-medium whitespace-nowrap animate-in fade-in slide-in-from-left-2 duration-300">
+                    {item.label}
+                  </span>
+                  {['Notifications', 'Messages', 'Communities'].includes(item.label) && (
+                    <span className="text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 bg-[var(--surface-hover)] border border-[var(--border-dim)] rounded-full text-[var(--text-muted)] animate-in fade-in zoom-in duration-500">
+                      Soon
+                    </span>
+                  )}
+                </div>
               )}
 
               {/* Tooltip */}
@@ -207,6 +219,31 @@ export default function Sidebar({
 
         {/* Bottom Section */}
         <div className="flex flex-col space-y-2 pb-6 px-2">
+          {user?.email === 'test@example.com' && (
+            <div
+              onClick={() => router.push('/login')}
+              className={`flex items-center group relative overflow-hidden h-12 mb-2 transition-all cursor-pointer rounded-xl bg-orange-500/10 border border-orange-500/20 hover:border-orange-500/40 hover:bg-orange-500/20
+                ${isExpanded || mobileOpen ? 'px-3 justify-start' : 'justify-center'}`}
+            >
+              <Sparkles className="w-5 h-5 flex-shrink-0 text-orange-500" />
+              {(isExpanded || mobileOpen) && (
+                <div className="ml-4 flex flex-col justify-center animate-in fade-in slide-in-from-left-2 duration-300">
+                  <span className="text-xs font-black text-orange-500 uppercase tracking-widest leading-none mb-1">
+                    Sign In
+                  </span>
+                  <span className="text-[9px] text-orange-500/60 font-bold uppercase truncate w-24">
+                    Unlock All
+                  </span>
+                </div>
+              )}
+              {!isExpanded && !mobileOpen && (
+                <span className="absolute left-14 px-2 py-1 bg-orange-500 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
+                  Join AstraVex
+                </span>
+              )}
+            </div>
+          )}
+
           <div
             onClick={(e) => {
               e.stopPropagation();

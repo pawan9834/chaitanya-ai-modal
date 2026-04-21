@@ -2,8 +2,10 @@
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { auth, googleProvider } from '../lib/firebase';
-import { signInWithPopup, User as FirebaseUser } from 'firebase/auth';
+import { signInWithPopup, User as FirebaseUser, signInWithCredential, GoogleAuthProvider as FirebaseGoogleAuthProvider } from 'firebase/auth';
 import Cookies from 'js-cookie';
+import { Capacitor } from '@capacitor/core';
+import { GoogleSignIn } from '@capawesome/capacitor-google-sign-in';
 
 interface User {
   email: string;
@@ -50,8 +52,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const loginWithGoogle = async () => {
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const idToken = await result.user.getIdToken();
+      let idToken: string | undefined;
+
+      if (Capacitor.isNativePlatform()) {
+        // Initialize the plugin with your Web Client ID
+        await GoogleSignIn.initialize({
+          clientId: '176531876007-qhf2afne5m6ff2qhp7m5830bafj82t98.apps.googleusercontent.com',
+        });
+
+        const result = await GoogleSignIn.signIn();
+        idToken = result.idToken;
+        
+        // SYNC WITH FIREBASE: Create a credential from the native token and sign in locally
+        const credential = FirebaseGoogleAuthProvider.credential(idToken);
+        await signInWithCredential(auth, credential);
+      } else {
+        const result = await signInWithPopup(auth, googleProvider);
+        idToken = await result.user.getIdToken();
+      }
+
+      if (!idToken) throw new Error('Failed to obtain ID Token');
       
       // Send token to backend to create session
       const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/google`, {
@@ -65,8 +85,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const data = await res.json();
         setUser(data.user);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Google Sign-In failed:', error);
+      if (Capacitor.isNativePlatform()) {
+        alert('Native Google Error: ' + (error.message || JSON.stringify(error)));
+      }
     }
   };
 
