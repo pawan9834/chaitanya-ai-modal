@@ -19,9 +19,11 @@ try {
     const base64 = rawB64.replace(/\s/g, '');
     let jsonString = Buffer.from(base64, 'base64').toString('utf-8');
     
-    // CRITICAL: Handle literal newlines that might be inside the decoded string
-    // which cause JSON.parse to throw "Bad control character"
-    const sanitizedJson = jsonString.replace(/\n/g, '\\n').replace(/\r/g, '\\r');
+    // CRITICAL: Handle literal control characters (newlines/carriage returns) 
+    // that might be inside the decoded string, which cause JSON.parse to crash.
+    const sanitizedJson = jsonString
+      .replace(/\r/g, '') // Remove carriage returns entirely
+      .replace(/\n/g, '\\n'); // Escape literal newlines
     
     const serviceAccount = JSON.parse(sanitizedJson);
     admin.initializeApp({
