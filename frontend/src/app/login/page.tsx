@@ -99,10 +99,9 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/verify-otp`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/guest-session`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: 'test@example.com', otp: '123456' }),
         credentials: 'include',
       });
       const data = await res.json();
@@ -110,7 +109,7 @@ export default function LoginPage() {
         setUser(data.user);
         router.push('/');
       } else {
-        setError(data.message || 'Easy Login failed');
+        setError(data.message || 'Guest session failed');
       }
     } catch (err: any) {
       setError(`Connection Error: ${err.message || 'Unknown'}. URL: ${process.env.NEXT_PUBLIC_BACKEND_URL}`);

@@ -264,7 +264,8 @@ export default function DashboardShell() {
     }
 
     // Enforce Guest Limit
-    if (user?.email === 'test@example.com' && guestChatCount >= 2) {
+    const isGuest = user?.email === 'test@example.com' || user?.email?.startsWith('guest_');
+    if (isGuest && guestChatCount >= 2) {
       setIsLimitModalOpen(true);
       return;
     }

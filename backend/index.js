@@ -69,6 +69,21 @@ app.get('/api/hello', (req, res) => {
   res.json({ message: 'Welcome to AstraVex - System Online!' });
 });
 
+// Diagnostic endpoint to check Firebase status
+app.get('/api/debug/firebase', (req, res) => {
+  const hasBase64 = !!process.env.FIREBASE_SERVICE_ACCOUNT_BASE64;
+  const hasEnvVars = !!(process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_PRIVATE_KEY);
+  const isInitialized = (admin.apps.length > 0);
+  
+  res.json({
+    status: isInitialized ? 'Initialized' : 'Not Initialized',
+    methodUsed: hasBase64 ? 'Base64 Detected' : (hasEnvVars ? 'Env Vars Detected' : 'No Credentials Found'),
+    dbConnected: !!db,
+    authConnected: !!auth,
+    availableEnvKeys: Object.keys(process.env).filter(k => k.startsWith('FIREBASE'))
+  });
+});
+
 // Step 1: Send OTP
 app.post('/api/auth/send-otp', async (req, res) => {
   const { email } = req.body;
@@ -122,6 +137,32 @@ app.post('/api/auth/send-otp', async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Failed to send OTP' });
+  }
+});
+
+// --- NEW: Generate Unique Guest Session ---
+app.post('/api/auth/guest-session', async (req, res) => {
+  try {
+    const crypto = require('crypto');
+    const guestId = `guest_${crypto.randomUUID().substring(0, 8)}`;
+    const userData = { 
+      email: guestId, 
+      name: 'Guest User', 
+      profession: 'Visitor',
+      createdAt: new Date().toISOString() 
+    };
+
+    const token = jwt.sign({ email: userData.email, id: userData.email }, JWT_SECRET, { expiresIn: '7d' });
+    res.cookie('token', token, { 
+      httpOnly: true, 
+      secure: false, // Set to true if using HTTPS in prod
+      maxAge: 7 * 24 * 60 * 60 * 1000 
+    });
+
+    res.json({ message: 'Guest session created', user: userData });
+  } catch (error) {
+    console.error('[GUEST_AUTH] Error:', error);
+    res.status(500).json({ message: 'Failed to create guest session' });
   }
 });
 
