@@ -12,11 +12,13 @@ const PORT = process.env.PORT || 8080;
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkey';
 
 // Initialize Gemini AI
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const apiKey = process.env.GEMINI_API_KEY;
+const genAI = new GoogleGenerativeAI(apiKey);
 const model = genAI.getGenerativeModel({ 
-  model: "gemini-flash-lite-latest",
-  systemInstruction: "You are AstraVex, a premium, high-fidelity AI assistant. You are professional, knowledgeable, and friendly. You provide concise yet deep insights. You are the brain of the AstraVex Dashboard.",
+  model: "gemini-flash-latest",
 });
+const systemInstruction = "You are AstraVex, a premium AI assistant.";
+
 
 // Transporter for sending emails
 const transporter = nodemailer.createTransport({
@@ -223,9 +225,9 @@ app.post('/api/auth/logout', (req, res) => {
 
 // --- AI Chat Endpoint ---
 app.post('/api/chat', authenticateToken, async (req, res) => {
-  const { message, history, image } = req.body;
+  let { message: incomingMessage, history, image, conversationId } = req.body;
   
-  if (!message && !image) {
+  if (!incomingMessage && !image) {
     return res.status(400).json({ message: 'Message or image is required' });
   }
 
@@ -273,6 +275,12 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
       },
     });
 
+    // Manually prepend system instruction as a user message if it's the first message
+    let finalMessage = incomingMessage;
+    if (chatHistory.length === 0) {
+      finalMessage = `${systemInstruction}\n\nUser: ${incomingMessage || "Hello"}`;
+    }
+
     let result;
     if (image) {
       // Handle Multi-modal (Text + Image)
@@ -282,10 +290,10 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
           mimeType: image.includes('image/') ? image.split(';')[0].split(':')[1] : 'image/png'
         }
       };
-      result = await model.generateContent([message || "What is in this image?", imageData]);
+      result = await model.generateContent([finalMessage || "What is in this image?", imageData]);
     } else {
       // Standard Text Chat
-      result = await chat.sendMessage(message);
+      result = await chat.sendMessage(finalMessage || "Hello");
     }
 
     const response = await result.response;
@@ -299,15 +307,35 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
     };
 
     // --- NEW: Save to Firestore ---
+    let actualConversationId = conversationId;
     if (db) {
       const userEmail = req.user.id;
-      const messagesRef = db.collection('users').doc(userEmail).collection('messages');
+      const conversationsRef = db.collection('users').doc(userEmail).collection('conversations');
       
-      // Save User Message (Use the earlier captured timestamp)
+      // 1. Determine or Create Conversation
+      if (!actualConversationId) {
+        actualConversationId = Date.now().toString();
+        // Create conversation doc with metadata
+        await conversationsRef.doc(actualConversationId).set({
+          id: actualConversationId,
+          title: incomingMessage ? (incomingMessage.substring(0, 30) + (incomingMessage.length > 30 ? '...' : '')) : "Image Chat",
+          updatedAt: new Date().toISOString(),
+          createdAt: new Date().toISOString()
+        });
+      } else {
+        // Update existing conversation timestamp
+        await conversationsRef.doc(actualConversationId).update({
+          updatedAt: new Date().toISOString()
+        });
+      }
+
+      const messagesRef = conversationsRef.doc(actualConversationId).collection('messages');
+      
+      // Save User Message
       const userMsgToSave = {
         id: userMsgId,
         role: 'user',
-        content: message || "",
+        content: incomingMessage || "",
         image: image || null,
         timestamp: userTimestamp
       };
@@ -317,26 +345,31 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
       await messagesRef.doc(aiResponse.id).set(aiResponse);
     }
 
-    res.json(aiResponse);
+    res.json({ ...aiResponse, conversationId: actualConversationId });
   } catch (error) {
     console.error('[AI] Gemini Error:', error);
     const status = error.status || 500;
-    const message = error.status === 429 
+    const errorMsg = error.status === 429 
       ? 'AI Quota exceeded. Please wait a few seconds and try again.' 
       : (error.message || 'AI failed to respond. Please check your API key.');
     
-    res.status(status).json({ message });
+    res.status(status).json({ message: errorMsg });
   }
 });
 
-// --- NEW: Get Chat History ---
+// --- NEW: Get Chat History for a Specific Conversation ---
 app.get('/api/chat/history', authenticateToken, async (req, res) => {
+  const { conversationId } = req.query;
+  
   try {
     if (!db) return res.status(500).json({ message: 'Database not initialized' });
+    if (!conversationId) return res.json([]); // Return empty if no conversation selected
     
     const userEmail = req.user.id;
     const messagesSnapshot = await db.collection('users')
       .doc(userEmail)
+      .collection('conversations')
+      .doc(conversationId.toString())
       .collection('messages')
       .orderBy('timestamp', 'asc')
       .get();
@@ -348,6 +381,28 @@ app.get('/api/chat/history', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('[HISTORY] Error:', error);
     res.status(500).json({ message: 'Failed to fetch chat history' });
+  }
+});
+
+// --- NEW: Get List of All Conversations ---
+app.get('/api/conversations', authenticateToken, async (req, res) => {
+  try {
+    if (!db) return res.status(500).json({ message: 'Database not initialized' });
+    
+    const userEmail = req.user.id;
+    const convsSnapshot = await db.collection('users')
+      .doc(userEmail)
+      .collection('conversations')
+      .orderBy('updatedAt', 'desc')
+      .get();
+
+    const conversations = [];
+    convsSnapshot.forEach(doc => conversations.push(doc.data()));
+    
+    res.json(conversations);
+  } catch (error) {
+    console.error('[CONV_LIST] Error:', error);
+    res.status(500).json({ message: 'Failed to fetch conversations' });
   }
 });
 

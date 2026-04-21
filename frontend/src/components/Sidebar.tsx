@@ -17,7 +17,8 @@ import {
   FileText,
   LifeBuoy,
   Zap,
-  X
+  X,
+  MessageSquare
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
@@ -25,9 +26,20 @@ import { useRouter } from 'next/navigation';
 interface SidebarProps {
   mobileOpen?: boolean;
   onClose?: () => void;
+  onHomeClick?: () => void;
+  conversations?: any[];
+  currentConversationId?: string | null;
+  onConversationSelect?: (id: string) => void;
 }
 
-export default function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
+export default function Sidebar({ 
+  mobileOpen = false, 
+  onClose, 
+  onHomeClick,
+  conversations = [],
+  currentConversationId,
+  onConversationSelect
+}: SidebarProps) {
   const { user, setUser } = useAuth();
   const router = useRouter();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -111,12 +123,15 @@ export default function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
         </div>
 
         {/* Nav Items */}
-        <nav className="flex-grow space-y-1 px-2 overflow-hidden">
+        <nav className="flex-grow space-y-1 px-2 overflow-y-auto custom-scrollbar">
           {navItems.map((item, idx) => (
             <div
               key={idx}
               onClick={(e) => {
                 e.stopPropagation();
+                if (item.label === 'Home' && onHomeClick) {
+                  onHomeClick();
+                }
                 if (onClose) onClose();
               }}
               className={`flex items-center text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--surface-hover)] rounded-lg transition-all cursor-pointer group h-10 relative
@@ -138,6 +153,34 @@ export default function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
               )}
             </div>
           ))}
+
+          {/* Conversations Section */}
+          {(isExpanded || mobileOpen) && conversations.length > 0 && (
+            <div className="pt-6 pb-2 px-3">
+              <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-3">Recent Chats</p>
+              <div className="space-y-1">
+                {conversations.map((conv) => (
+                  <div
+                    key={conv.id}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onConversationSelect) onConversationSelect(conv.id);
+                    }}
+                    className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all group relative
+                      ${currentConversationId === conv.id 
+                        ? 'bg-[var(--surface-hover)] text-[var(--text-main)]' 
+                        : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--surface-hover)]'
+                      }`}
+                  >
+                    <MessageSquare className="w-4 h-4 flex-shrink-0" />
+                    <span className="text-xs font-medium truncate flex-grow leading-tight">
+                      {conv.title || 'Untitled Chat'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </nav>
 
         {/* Bottom Section */}

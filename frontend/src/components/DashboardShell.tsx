@@ -37,8 +37,8 @@ export default function DashboardShell() {
   const [isTyping, setIsTyping] = useState(false);
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
 
-  // Model Selection State - Default to Gemini
-  const [selectedModel, setSelectedModel] = useState('Gemini 1.5 Pro');
+  // Model Selection State - Default to Gemini 1.5 Flash
+  const [selectedModel, setSelectedModel] = useState('Gemini 1.5 Flash');
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
 
   // File Upload State
@@ -47,6 +47,10 @@ export default function DashboardShell() {
   const [filePreview, setFilePreview] = useState<string | null>(null);
 
   const [messages, setMessages] = useState<any[]>([]);
+  const [conversations, setConversations] = useState<any[]>([]);
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [showCopyAlert, setShowCopyAlert] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -59,11 +63,29 @@ export default function DashboardShell() {
     scrollToBottom();
   }, [messages, isTyping]);
 
+  const fetchConversations = async () => {
+    if (!user) return;
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/conversations`, {
+        credentials: 'include'
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setConversations(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch conversations:', error);
+    }
+  };
+
   useEffect(() => {
     const fetchHistory = async () => {
-      if (!user) return;
+      if (!user || !currentConversationId) {
+        if (!currentConversationId) setMessages([]);
+        return;
+      }
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/chat/history`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/chat/history?conversationId=${currentConversationId}`, {
           credentials: 'include'
         });
         if (response.ok) {
@@ -76,10 +98,61 @@ export default function DashboardShell() {
     };
 
     fetchHistory();
+  }, [user, currentConversationId]);
+
+  useEffect(() => {
+    fetchConversations();
   }, [user]);
 
-  // Model Selector Options
-  const models = ['Gemini 1.5 Pro', 'Grok 3', 'Grok 2', 'GPT-4o', 'Claude 3.5'];
+  const copyToClipboard = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setShowCopyAlert(true);
+    setTimeout(() => {
+      setCopiedId(null);
+      setShowCopyAlert(false);
+    }, 2000);
+  };
+
+  const handleRegenerate = async () => {
+    if (messages.length < 2 || isTyping) return;
+    
+    // Find the last user message to resend
+    const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
+    if (!lastUserMsg) return;
+
+    // Remove last assistant message if any
+    if (messages[messages.length - 1].role === 'assistant') {
+      setMessages(prev => prev.slice(0, -1));
+    }
+
+    setIsTyping(true);
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: lastUserMsg.content,
+          image: lastUserMsg.image,
+          conversationId: currentConversationId,
+          history: messages.slice(-11, -1) // Correct history without the message we are regenerating
+        }),
+        credentials: 'include'
+      });
+
+      if (!response.ok) throw new Error('API Error');
+
+      const data = await response.json();
+      setMessages(prev => [...prev, data]);
+    } catch (err) {
+      console.error('Regeneration Error:', err);
+    } finally {
+      setIsTyping(false);
+    }
+  };
+
+  // Model Selector Options - Only Free Models
+  const models = ['Gemini 1.5 Flash'];
 
   // File Handling Logic
   const handleFileClick = () => {
@@ -185,6 +258,7 @@ export default function DashboardShell() {
         body: JSON.stringify({
           message: currentInput,
           image: currentImage,
+          conversationId: currentConversationId,
           history: messages.slice(-10) // Send last 10 messages for context
         }),
         credentials: 'include'
@@ -194,6 +268,11 @@ export default function DashboardShell() {
 
       const data = await response.json();
       setMessages(prev => [...prev, data]);
+      
+      if (!currentConversationId && data.conversationId) {
+        setCurrentConversationId(data.conversationId);
+        fetchConversations(); // Refresh list to show the new conversation title
+      }
     } catch (err) {
       console.error('Chat Error:', err);
       setMessages(prev => [...prev, {
@@ -231,6 +310,16 @@ export default function DashboardShell() {
 
   return (
     <div className="flex h-svh w-screen bg-[var(--background)] text-[var(--text-main)] font-sans selection:bg-[var(--text-main)] selection:text-[var(--background)] overflow-hidden relative transition-colors duration-300">
+      {/* Copy Alert */}
+      <div className={`fixed top-6 left-1/2 -translate-x-1/2 z-[300] transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${showCopyAlert ? 'translate-y-0 opacity-100' : '-translate-y-12 opacity-0 pointer-events-none'}`}>
+        <div className="bg-[var(--surface)] border border-[var(--border-dim)] px-5 py-3 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] flex items-center gap-3 backdrop-blur-xl">
+          <div className="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center">
+            <Check className="w-4 h-4 text-green-500" />
+          </div>
+          <span className="text-sm font-medium pr-2">Copied to clipboard</span>
+        </div>
+      </div>
+
       <div className="fixed inset-0 z-0 text-center pointer-events-none">
         <div className="absolute inset-0 grok-grid opacity-30"></div>
         <div className="absolute top-1/4 -left-20 w-[40rem] h-[40rem] bg-zinc-600/5 rounded-full blur-[120px] animate-blob"></div>
@@ -240,6 +329,16 @@ export default function DashboardShell() {
       <Sidebar
         mobileOpen={isMobileSidebarOpen}
         onClose={() => setIsMobileSidebarOpen(false)}
+        onHomeClick={() => {
+          setCurrentConversationId(null);
+          setMessages([]);
+        }}
+        conversations={conversations}
+        currentConversationId={currentConversationId}
+        onConversationSelect={(id) => {
+          setCurrentConversationId(id);
+          setIsMobileSidebarOpen(false);
+        }}
       />
 
       <main className="flex-grow z-10 flex flex-col h-full relative overflow-hidden">
@@ -338,10 +437,26 @@ export default function DashboardShell() {
 
                         {msg.role === 'assistant' && (
                           <div className="flex items-center gap-4 px-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button className="text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors"><Copy className="w-3.5 h-3.5" /></button>
-                            <button className="text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors"><RotateCcw className="w-3.5 h-3.5" /></button>
-                            <button className="text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors"><ThumbsUp className="w-3.5 h-3.5" /></button>
-                            <button className="text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors"><ThumbsDown className="w-3.5 h-3.5" /></button>
+                            <button 
+                              onClick={() => copyToClipboard(msg.content, msg.id)}
+                              className="text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors"
+                              title="Copy to clipboard"
+                            >
+                              {copiedId === msg.id ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+                            </button>
+                            <button 
+                              onClick={handleRegenerate}
+                              className="text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors"
+                              title="Regenerate"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                            </button>
+                            <button className="text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors font-medium">
+                              <ThumbsUp className="w-3.5 h-3.5" />
+                            </button>
+                            <button className="text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors">
+                              <ThumbsDown className="w-3.5 h-3.5" />
+                            </button>
                           </div>
                         )}
                       </div>
