@@ -70,13 +70,32 @@ app.get('/api/hello', (req, res) => {
 });
 
 // Diagnostic endpoint to check Firebase status
-app.get('/api/debug/firebase', (req, res) => {
+app.get('/api/debug/firebase', async (req, res) => {
   const hasBase64 = !!process.env.FIREBASE_SERVICE_ACCOUNT_BASE64;
   const hasEnvVars = !!(process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_PRIVATE_KEY);
   const isInitialized = (admin.apps.length > 0);
   
+  let dbTest = "Not Attempted";
+  let dbError = null;
+
+  if (isInitialized && db) {
+    try {
+      await db.collection('_debug_').doc('test').set({ 
+        timestamp: new Date().toISOString(),
+        message: "Connectivity Test" 
+      });
+      const doc = await db.collection('_debug_').doc('test').get();
+      dbTest = doc.exists ? "Write/Read Successful ✅" : "Write worked but document disappeared? ❓";
+    } catch (e) {
+      dbTest = "Failed ❌";
+      dbError = e.message;
+    }
+  }
+
   res.json({
     status: isInitialized ? 'Initialized' : 'Not Initialized',
+    databaseTest: dbTest,
+    databaseError: dbError,
     methodUsed: hasBase64 ? 'Base64 Detected' : (hasEnvVars ? 'Env Vars Detected' : 'No Credentials Found'),
     dbConnected: !!db,
     authConnected: !!auth,
