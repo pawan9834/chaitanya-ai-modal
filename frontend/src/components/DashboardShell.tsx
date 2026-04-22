@@ -40,7 +40,7 @@ export default function DashboardShell() {
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
 
   // Model Selection State - Default to Gemini 1.5 Flash
-  const [selectedModel, setSelectedModel] = useState('Gemini 1.5 Flash');
+  const [selectedModel, setSelectedModel] = useState('AstraVex - v.1');
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
 
   // File Upload State
@@ -199,7 +199,7 @@ export default function DashboardShell() {
   };
 
   // Model Selector Options - Only Free Models
-  const models = ['Gemini 1.5 Flash'];
+  const models = ['ksmndskdnskjn'];
 
   // File Handling Logic
   const handleFileClick = () => {
