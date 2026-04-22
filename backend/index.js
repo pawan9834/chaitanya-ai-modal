@@ -51,7 +51,9 @@ app.use(cookieParser());
 
 // --- Authentication Middleware ---
 const authenticateToken = async (req, res, next) => {
-  const token = req.cookies.token;
+  const authHeader = req.headers['authorization'];
+  const token = (authHeader && authHeader.split(' ')[1]) || req.cookies.token;
+  
   if (!token) return res.status(401).json({ message: 'Unauthorized' });
 
   try {
@@ -213,7 +215,7 @@ app.post('/api/auth/guest-session', async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000
     });
 
-    res.json({ message: 'Guest session created', user: userData });
+    res.json({ message: 'Guest session created', user: userData, token });
   } catch (error) {
     console.error('[GUEST_AUTH] Error:', error);
     res.status(500).json({ message: 'Failed to create guest session' });
@@ -259,7 +261,7 @@ app.post('/api/auth/verify-otp', async (req, res) => {
       };
       const token = jwt.sign({ email: userData.email, id: userData.email }, JWT_SECRET, { expiresIn: '7d' });
       res.cookie('token', token, { httpOnly: true, secure: false, maxAge: 7 * 24 * 60 * 60 * 1000 });
-      return res.json({ registered: true, user: userData });
+      return res.json({ registered: true, user: userData, token });
     } else {
       return res.json({ registered: false, message: 'Please complete your profile' });
     }
@@ -283,7 +285,7 @@ app.post('/api/auth/register', async (req, res) => {
     const token = jwt.sign({ email, id: email }, JWT_SECRET, { expiresIn: '7d' });
     res.cookie('token', token, { httpOnly: true, secure: false, maxAge: 7 * 24 * 60 * 60 * 1000 });
 
-    res.json({ message: 'User registered successfully', user: userData });
+    res.json({ message: 'User registered successfully', user: userData, token });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Registration failed' });
@@ -328,7 +330,7 @@ app.post('/api/auth/google', async (req, res) => {
     const token = jwt.sign({ email, id: email }, JWT_SECRET, { expiresIn: '7d' });
     res.cookie('token', token, { httpOnly: true, secure: false, maxAge: 7 * 24 * 60 * 60 * 1000 });
 
-    res.json({ message: 'Success', user: userData });
+    res.json({ message: 'Success', user: userData, token });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Google authentication failed' });
