@@ -23,9 +23,10 @@ export type Category = 'Account' | 'Appearance' | 'Behavior' | 'Customize' | 'Da
 
 interface SettingsLayoutProps {
   isMobile?: boolean;
+  onDataCleared?: () => void;
 }
 
-export default function SettingsLayout({ isMobile = false }: SettingsLayoutProps) {
+export default function SettingsLayout({ isMobile = false, onDataCleared }: SettingsLayoutProps) {
   const { user, authToken, logout } = useAuth();
   const { theme, setTheme } = useTheme();
   const [activeCategory, setActiveCategory] = useState<Category>('Account');
@@ -52,8 +53,12 @@ export default function SettingsLayout({ isMobile = false }: SettingsLayoutProps
           await logout();
           window.location.href = '/login';
         } else {
-          alert(`Successfully deleted ${type === 'conversations' ? 'all conversations' : 'all media'}.`);
           setConfirming(null);
+          if (type === 'conversations' && onDataCleared) {
+            onDataCleared();
+          } else {
+            alert(`Successfully deleted all ${type === 'media' ? 'media' : 'data'}.`);
+          }
         }
       } else {
         alert('Failed to process deletion. Please try again.');

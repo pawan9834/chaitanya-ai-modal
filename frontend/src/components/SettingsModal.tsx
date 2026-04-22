@@ -8,9 +8,10 @@ import SettingsLayout from './SettingsLayout';
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onDataCleared: () => void;
 }
 
-export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
+export default function SettingsModal({ isOpen, onClose, onDataCleared }: SettingsModalProps) {
   // Close on Esc
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -54,7 +55,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             </div>
 
             {/* Content Body */}
-            <SettingsLayout />
+            <SettingsLayout onDataCleared={onDataCleared} />
           </motion.div>
         </motion.div>
       )}

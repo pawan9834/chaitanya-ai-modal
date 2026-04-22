@@ -349,6 +349,13 @@ export default function DashboardShell() {
     }
   };
 
+  const handleDataCleared = () => {
+    setConversations([]);
+    setMessages([]);
+    setCurrentConversationId(null);
+    setIsSettingsModalOpen(false);
+  };
+
   React.useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
@@ -421,6 +428,7 @@ export default function DashboardShell() {
       <SettingsModal
         isOpen={isSettingsModalOpen}
         onClose={() => setIsSettingsModalOpen(false)}
+        onDataCleared={handleDataCleared}
       />
 
       {/* Guest Limit Modal */}
