@@ -5,7 +5,7 @@ const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 require('dotenv').config();
-const { db, auth } = require('./firebaseAdmin');
+const { admin, db, auth } = require('./firebaseAdmin');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
