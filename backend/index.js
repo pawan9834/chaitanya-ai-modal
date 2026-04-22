@@ -14,7 +14,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkey';
 // Initialize Gemini AI
 const apiKey = process.env.GEMINI_API_KEY;
 const genAI = new GoogleGenerativeAI(apiKey);
-const model = genAI.getGenerativeModel({ 
+const model = genAI.getGenerativeModel({
   model: "gemini-flash-latest",
 });
 const systemInstruction = "You are AstraVex, a premium AI assistant.";
@@ -71,18 +71,38 @@ app.get('/api/hello', (req, res) => {
 
 // Diagnostic endpoint to check Firebase status
 app.get('/api/debug/firebase', async (req, res) => {
-  const hasBase64 = !!process.env.FIREBASE_SERVICE_ACCOUNT_BASE64;
+  const hasB64 = !!process.env.FIREBASE_SERVICE_ACCOUNT_B64;
+  const hasLegacyB64 = !!process.env.FIREBASE_SERVICE_ACCOUNT_BASE64;
   const hasEnvVars = !!(process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_PRIVATE_KEY);
   const isInitialized = (admin.apps.length > 0);
-  
+
   let dbTest = "Not Attempted";
   let dbError = null;
+  let b64ParseError = null;
+
+  if (hasB64) {
+    try {
+      JSON.parse(Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_B64, 'base64').toString('utf8'));
+    } catch (e) {
+      b64ParseError = e.message;
+    }
+  }
+
+  // Masking helpers
+  const mask = (str) => {
+    if (!str || str.length < 10) return "****";
+    return `${str.substring(0, 5)}...${str.substring(str.length - 5)}`;
+  };
+
+  const keyStatus = process.env.FIREBASE_PRIVATE_KEY 
+    ? (process.env.FIREBASE_PRIVATE_KEY.includes("BEGIN PRIVATE KEY") ? "Header Found ✅" : "Header Missing ❌ (Formatted later)")
+    : "Key Missing ❌";
 
   if (isInitialized && db) {
     try {
-      await db.collection('_debug_').doc('test').set({ 
+      await db.collection('_debug_').doc('test').set({
         timestamp: new Date().toISOString(),
-        message: "Connectivity Test" 
+        message: "Connectivity Test"
       });
       const doc = await db.collection('_debug_').doc('test').get();
       dbTest = doc.exists ? "Write/Read Successful ✅" : "Write worked but document disappeared? ❓";
@@ -93,13 +113,24 @@ app.get('/api/debug/firebase', async (req, res) => {
   }
 
   res.json({
-    status: isInitialized ? 'Initialized' : 'Not Initialized',
+    status: isInitialized ? "Initialized" : "NOT Initialized",
+    diagnostics: {
+      hasB64,
+      hasLegacyB64,
+      hasEnvVars,
+      b64Valid: hasB64 && !b64ParseError,
+      b64Error: b64ParseError
+    },
+    credentialsPreview: {
+      projectId: mask(process.env.FIREBASE_PROJECT_ID),
+      clientEmail: mask(process.env.FIREBASE_CLIENT_EMAIL),
+      privateKeyHeader: keyStatus,
+      b64Preview: mask(process.env.FIREBASE_SERVICE_ACCOUNT_B64)
+    },
+    dbConnected: !!db,
     databaseTest: dbTest,
     databaseError: dbError,
-    methodUsed: hasBase64 ? 'Base64 Detected' : (hasEnvVars ? 'Env Vars Detected' : 'No Credentials Found'),
-    dbConnected: !!db,
-    authConnected: !!auth,
-    availableEnvKeys: Object.keys(process.env).filter(k => k.startsWith('FIREBASE'))
+    availableEnvKeys: Object.keys(process.env).filter(k => k.startsWith('FIREBASE_'))
   });
 });
 
@@ -148,15 +179,15 @@ app.post('/api/auth/send-otp', async (req, res) => {
     } catch (mailError) {
       console.error('[AUTH] Email delivery failed:', mailError);
       console.log(`[AUTH] FALLBACK: OTP for ${email}: ${otp}`);
-      res.json({ 
+      res.json({
         message: 'OTP generated (Email delivery failed). Check server console for demo purposes.',
-        fallback: true 
+        fallback: true
       });
     }
   } catch (error) {
     console.error('[AUTH_ERROR]', error);
-    res.status(500).json({ 
-      message: 'Failed to send OTP', 
+    res.status(500).json({
+      message: 'Failed to send OTP',
       error: error.message,
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
@@ -168,18 +199,18 @@ app.post('/api/auth/guest-session', async (req, res) => {
   try {
     const crypto = require('crypto');
     const guestId = `guest_${crypto.randomUUID().substring(0, 8)}`;
-    const userData = { 
-      email: guestId, 
-      name: 'Guest User', 
+    const userData = {
+      email: guestId,
+      name: 'Guest User',
       profession: 'Visitor',
-      createdAt: new Date().toISOString() 
+      createdAt: new Date().toISOString()
     };
 
     const token = jwt.sign({ email: userData.email, id: userData.email }, JWT_SECRET, { expiresIn: '7d' });
-    res.cookie('token', token, { 
-      httpOnly: true, 
+    res.cookie('token', token, {
+      httpOnly: true,
       secure: false, // Set to true if using HTTPS in prod
-      maxAge: 7 * 24 * 60 * 60 * 1000 
+      maxAge: 7 * 24 * 60 * 60 * 1000
     });
 
     res.json({ message: 'Guest session created', user: userData });
@@ -220,11 +251,11 @@ app.post('/api/auth/verify-otp', async (req, res) => {
     }
 
     if (exists || isTestAccount) {
-      const userData = userDoc.exists ? userDoc.data() : { 
-        email: 'test@example.com', 
-        name: 'Guest User', 
+      const userData = userDoc.exists ? userDoc.data() : {
+        email: 'test@example.com',
+        name: 'Guest User',
         profession: 'Tester',
-        createdAt: new Date().toISOString() 
+        createdAt: new Date().toISOString()
       };
       const token = jwt.sign({ email: userData.email, id: userData.email }, JWT_SECRET, { expiresIn: '7d' });
       res.cookie('token', token, { httpOnly: true, secure: false, maxAge: 7 * 24 * 60 * 60 * 1000 });
@@ -313,7 +344,7 @@ app.post('/api/auth/logout', (req, res) => {
 // --- AI Chat Endpoint ---
 app.post('/api/chat', authenticateToken, async (req, res) => {
   let { message: incomingMessage, history, image, conversationId } = req.body;
-  
+
   if (!incomingMessage && !image) {
     return res.status(400).json({ message: 'Message or image is required' });
   }
@@ -333,7 +364,7 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
     // Gemini requires:
     // - First message must be 'user'
     // - Roles must strictly alternate (user, model, user, model...)
-    
+
     // Remove leading model messages
     while (chatHistory.length > 0 && chatHistory[0].role !== 'user') {
       chatHistory.shift();
@@ -348,7 +379,7 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
         lastRole = msg.role;
       }
     }
-    
+
     // Ensure it doesn't end with a model message (optional but safer)
     // Actually Gemini allows it but it's better to end with model so the next is user
     // However, if we end with user, startChat works fine as well.
@@ -386,7 +417,7 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
     const response = await result.response;
     const text = response.text();
 
-    const aiResponse = { 
+    const aiResponse = {
       id: Date.now().toString(),
       role: 'assistant',
       content: text,
@@ -398,7 +429,7 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
     if (db) {
       const userEmail = req.user.id;
       const conversationsRef = db.collection('users').doc(userEmail).collection('conversations');
-      
+
       // 1. Determine or Create Conversation
       if (!actualConversationId) {
         actualConversationId = Date.now().toString();
@@ -417,7 +448,7 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
       }
 
       const messagesRef = conversationsRef.doc(actualConversationId).collection('messages');
-      
+
       // Save User Message
       const userMsgToSave = {
         id: userMsgId,
@@ -436,10 +467,10 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('[AI] Gemini Error:', error);
     const status = error.status || 500;
-    const errorMsg = error.status === 429 
-      ? 'AI Quota exceeded. Please wait a few seconds and try again.' 
+    const errorMsg = error.status === 429
+      ? 'AI Quota exceeded. Please wait a few seconds and try again.'
       : (error.message || 'AI failed to respond. Please check your API key.');
-    
+
     res.status(status).json({ message: errorMsg });
   }
 });
@@ -447,11 +478,11 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
 // --- NEW: Get Chat History for a Specific Conversation ---
 app.get('/api/chat/history', authenticateToken, async (req, res) => {
   const { conversationId } = req.query;
-  
+
   try {
     if (!db) return res.status(500).json({ message: 'Database not initialized' });
     if (!conversationId) return res.json([]); // Return empty if no conversation selected
-    
+
     const userEmail = req.user.id;
     const messagesSnapshot = await db.collection('users')
       .doc(userEmail)
@@ -463,7 +494,7 @@ app.get('/api/chat/history', authenticateToken, async (req, res) => {
 
     const history = [];
     messagesSnapshot.forEach(doc => history.push(doc.data()));
-    
+
     res.json(history);
   } catch (error) {
     console.error('[HISTORY] Error:', error);
@@ -475,7 +506,7 @@ app.get('/api/chat/history', authenticateToken, async (req, res) => {
 app.get('/api/conversations', authenticateToken, async (req, res) => {
   try {
     if (!db) return res.status(500).json({ message: 'Database not initialized' });
-    
+
     const userEmail = req.user.id;
     const convsSnapshot = await db.collection('users')
       .doc(userEmail)
@@ -485,7 +516,7 @@ app.get('/api/conversations', authenticateToken, async (req, res) => {
 
     const conversations = [];
     convsSnapshot.forEach(doc => conversations.push(doc.data()));
-    
+
     res.json(conversations);
   } catch (error) {
     console.error('[CONV_LIST] Error:', error);
