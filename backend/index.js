@@ -135,8 +135,12 @@ app.post('/api/auth/send-otp', async (req, res) => {
       });
     }
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Failed to send OTP' });
+    console.error('[AUTH_ERROR]', error);
+    res.status(500).json({ 
+      message: 'Failed to send OTP', 
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 });
 
