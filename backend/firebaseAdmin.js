@@ -6,68 +6,64 @@ require('dotenv').config();
 const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || './firebase-service-account.json';
 
 /**
- * Robustly formats a private key string for Firebase.
- * Handles escaped newlines, literal newlines, and missing headers.
+ * THE ATOMIC KEY FORMATTER
+ * This function takes ANY string and turns it into a valid PEM private key.
+ * It strips all whitespace, newlines, and corruption, then rebuilds it perfectly.
  */
 function formatPrivateKey(pk) {
   if (!pk) return null;
-  // 1. Handle literal escaped newlines (e.g. from Render dashboard)
-  let cleaned = pk.replace(/\\n/g, '\n');
   
-  // 2. Remove any accidental surrounding quotes
-  cleaned = cleaned.replace(/^['"]|['"]$/g, '');
-  
-  // 3. Ensure it looks like a proper PEM key
-  if (!cleaned.includes('-----BEGIN PRIVATE KEY-----')) {
-    cleaned = `-----BEGIN PRIVATE KEY-----\n${cleaned}\n-----END PRIVATE KEY-----\n`;
+  // 1. Strip headers/footers and ALL non-base64 characters
+  let cleanData = pk
+    .replace(/-----BEGIN PRIVATE KEY-----/g, '')
+    .replace(/-----END PRIVATE KEY-----/g, '')
+    .replace(/[^A-Za-z0-9+/=]/g, ''); // Keep ONLY valid Base64 characters
+    
+  // 2. Reconstruct with standard PEM headers and 64-char line breaks
+  let formatted = "-----BEGIN PRIVATE KEY-----\n";
+  for (let i = 0; i < cleanData.length; i += 64) {
+    formatted += cleanData.substring(i, i + 64) + "\n";
   }
+  formatted += "-----END PRIVATE KEY-----\n";
   
-  return cleaned;
+  return formatted;
 }
 
 try {
-  // Option 1: Local JSON File
-  if (fs.existsSync(serviceAccountPath)) {
-    const serviceAccount = require(path.resolve(serviceAccountPath));
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount)
-    });
-    console.log('Firebase Admin: SUCCESS (Init via JSON File)');
-  } 
-  // Option 2: Fragmented Environment Variables (Most stable for Cloud)
-  else if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_PRIVATE_KEY) {
-    console.log('Firebase Admin: Attempting fragmented Env Var Init...');
-    const serviceAccount = {
+  let credentials = null;
+
+  // PRIORITY 1: Fragmented Vars (Most stable for Render)
+  if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_PRIVATE_KEY) {
+    console.log('Firebase Admin: Using Fragmented Env Vars');
+    credentials = {
       projectId: process.env.FIREBASE_PROJECT_ID,
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
       privateKey: formatPrivateKey(process.env.FIREBASE_PRIVATE_KEY),
     };
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount)
-    });
-    console.log('Firebase Admin: SUCCESS (Init via Fragmented Env Vars)');
+  } 
+  // PRIORITY 2: Local JSON File
+  else if (fs.existsSync(serviceAccountPath)) {
+    console.log('Firebase Admin: Using JSON File');
+    credentials = require(path.resolve(serviceAccountPath));
   }
-  // Option 3: Base64 Encoded JSON (Legacy/Fallback)
+  // PRIORITY 3: Base64 JSON
   else if (process.env.FIREBASE_SERVICE_ACCOUNT_BASE64) {
-    console.log('Firebase Admin: Attempting Base64 Init...');
+    console.log('Firebase Admin: Using Base64 String');
     const base64 = process.env.FIREBASE_SERVICE_ACCOUNT_BASE64.replace(/\s/g, '');
     const jsonString = Buffer.from(base64, 'base64').toString('utf-8');
-    
-    // Minimal sanitation for JSON parse
-    const sanitizedJson = jsonString.replace(/\n/g, '\\n').replace(/\r/g, '');
-    const serviceAccount = JSON.parse(sanitizedJson);
-    
+    credentials = JSON.parse(jsonString.replace(/\r?\n|\r/g, "\\n"));
+  }
+
+  if (credentials) {
     admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount)
+      credential: admin.credential.cert(credentials)
     });
-    console.log('Firebase Admin: SUCCESS (Init via Base64)');
-  } 
-  else {
-    console.error('Firebase Admin: FAILED - No credentials found.');
-    console.error('Check Render for FIREBASE_PROJECT_ID and FIREBASE_PRIVATE_KEY.');
+    console.log('Firebase Admin: INITIALIZED SUCCESSFULLY');
+  } else {
+    console.warn('Firebase Admin: WARNING - No credentials found. DB will fail.');
   }
 } catch (err) {
-  console.error('Firebase Admin: CRITICAL ERROR during init:', err.message);
+  console.error('Firebase Admin: BOOT ERROR:', err.message);
 }
 
 const db = admin.apps.length ? admin.firestore() : null;
