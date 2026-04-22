@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+import Link from 'next/link';
 import {
   User,
   Wand2,
@@ -15,11 +16,13 @@ import {
   Moon,
   Monitor,
   MessageSquare,
+  ShieldCheck,
+  Scale
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 
-export type Category = 'Account' | 'Appearance' | 'Behavior' | 'Customize' | 'Data Controls';
+export type Category = 'Account' | 'Appearance' | 'Behavior' | 'Customize' | 'Data Controls' | 'Legal';
 
 interface SettingsLayoutProps {
   isMobile?: boolean;
@@ -77,6 +80,7 @@ export default function SettingsLayout({ isMobile = false, onDataCleared }: Sett
     { id: 'Behavior' as Category, icon: <MousePointer2 className="w-5 h-5" />, label: 'Behavior' },
     { id: 'Customize' as Category, icon: <Sliders className="w-5 h-5" />, label: 'Customize' },
     { id: 'Data Controls' as Category, icon: <Database className="w-5 h-5" />, label: 'Data Controls' },
+    { id: 'Legal' as Category, icon: <ShieldCheck className="w-5 h-5" />, label: 'Legal' },
   ];
 
   const renderContent = () => {
@@ -233,6 +237,49 @@ export default function SettingsLayout({ isMobile = false, onDataCleared }: Sett
                 </motion.div>
               </div>
             )}
+          </div>
+        );
+      case 'Legal':
+        return (
+          <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+            <div>
+              <h3 className="text-xl font-black text-[var(--text-main)] tracking-tight mb-2">Legal Information</h3>
+              <p className="text-[var(--text-muted)] text-sm mb-8">Review our policies and terms of service.</p>
+            </div>
+            
+            <div className="grid grid-cols-1 gap-4">
+              <Link href="/terms" className="p-6 bg-[var(--surface)] border border-[var(--border-dim)] rounded-3xl flex items-center justify-between group hover:border-orange-500/50 transition-all">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 rounded-2xl bg-orange-500/10 text-orange-500">
+                    <Scale className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-[var(--text-main)]">Terms of Service</h4>
+                    <p className="text-[var(--text-muted)] text-xs">Agreement for using AstraVex.</p>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-[var(--text-muted)] group-hover:text-orange-500 transition-colors" />
+              </Link>
+
+              <Link href="/privacy" className="p-6 bg-[var(--surface)] border border-[var(--border-dim)] rounded-3xl flex items-center justify-between group hover:border-blue-500/50 transition-all">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 rounded-2xl bg-blue-500/10 text-blue-500">
+                    <ShieldCheck className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-[var(--text-main)]">Privacy Policy</h4>
+                    <p className="text-[var(--text-muted)] text-xs">How we protect your data.</p>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-[var(--text-muted)] group-hover:text-blue-500 transition-colors" />
+              </Link>
+            </div>
+
+            <div className="pt-10 text-center">
+              <p className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">
+                Version 1.0.4-ASTRA
+              </p>
+            </div>
           </div>
         );
       case 'Appearance':

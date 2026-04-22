@@ -3,7 +3,8 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { Mail, Lock, User, Briefcase, Globe, ArrowRight, ChevronLeft } from 'lucide-react';
+import { Mail, Lock, User, Briefcase, Globe, ArrowRight, ChevronLeft, ShieldCheck } from 'lucide-react';
+import Link from 'next/link';
 
 const GoogleIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -251,7 +252,7 @@ export default function LoginPage() {
 
         <footer className="mt-24 text-center">
           <p className="text-[var(--text-muted)] text-[10px] leading-relaxed max-w-xs mx-auto">
-            By signing in, you agree to our <span className="text-[var(--text-main)] underline cursor-pointer font-medium">Terms</span> and <span className="text-[var(--text-main)] underline cursor-pointer font-medium">Privacy Policy</span>.
+            By signing in, you agree to our <Link href="/terms" className="text-[var(--text-main)] underline cursor-pointer font-medium hover:text-orange-500 transition-colors">Terms</Link> and <Link href="/privacy" className="text-[var(--text-main)] underline cursor-pointer font-medium hover:text-orange-500 transition-colors">Privacy Policy</Link>.
           </p>
         </footer>
       </div>

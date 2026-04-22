@@ -31,7 +31,7 @@ import {
 } from 'lucide-react';
 
 export default function DashboardShell() {
-   const { user, loading, authToken } = useAuth();
+  const { user, loading, authToken } = useAuth();
   const router = useRouter();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [input, setInput] = useState('');
@@ -154,7 +154,7 @@ export default function DashboardShell() {
 
   const handleRegenerate = async () => {
     if (messages.length < 2 || isTyping) return;
-    
+
     // Find the last user message to resend
     const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
     if (!lastUserMsg) return;
@@ -174,7 +174,7 @@ export default function DashboardShell() {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/chat`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
         },
@@ -308,7 +308,7 @@ export default function DashboardShell() {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/chat`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
         },
@@ -325,7 +325,7 @@ export default function DashboardShell() {
 
       const data = await response.json();
       setMessages(prev => [...prev, data]);
-      
+
       if (!currentConversationId && data.conversationId) {
         setCurrentConversationId(data.conversationId);
         fetchConversations(); // Refresh list to show the new conversation title
@@ -423,7 +423,7 @@ export default function DashboardShell() {
         onComingSoon={() => showToast('Feature coming soon!', 'info')}
       />
 
-      <SearchModal 
+      <SearchModal
         isOpen={isSearchModalOpen}
         onClose={() => setIsSearchModalOpen(false)}
         conversations={conversations}
@@ -445,7 +445,7 @@ export default function DashboardShell() {
           <div className="w-full max-w-md bg-[var(--surface)]/80 border border-[var(--border-dim)] rounded-[3rem] p-10 shadow-2xl animate-in zoom-in-95 relative overflow-hidden group">
             {/* Decorative background glow */}
             <div className="absolute -top-24 -right-24 w-48 h-48 bg-orange-500/20 blur-[80px] rounded-full group-hover:bg-orange-500/30 transition-all duration-700" />
-            
+
             <div className="relative z-10">
               <div className="w-20 h-20 rounded-[2rem] bg-gradient-to-br from-orange-500 to-orange-600/20 flex items-center justify-center mb-8 mx-auto shadow-2xl shadow-orange-500/20">
                 <Sparkles className="w-10 h-10 text-white" />
@@ -457,17 +457,11 @@ export default function DashboardShell() {
                 You've hit the guest limit. Join thousands of users unlocking <span className="text-[var(--text-main)] font-black">Unlimited Intelligence</span>, secure chat history, and premium AI generation.
               </p>
               <div className="space-y-4">
-                <button 
+                <button
                   onClick={() => router.push('/login')}
                   className="w-full py-5 bg-orange-500 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] hover:bg-orange-600 hover:scale-[1.02] active:scale-95 transition-all shadow-2xl shadow-orange-500/40"
                 >
                   Create Account / Sign In
-                </button>
-                <button 
-                  onClick={() => setIsLimitModalOpen(false)}
-                  className="w-full py-4 bg-transparent border border-[var(--border-dim)] text-[var(--text-muted)]/50 rounded-2xl font-black text-[10px] uppercase tracking-[0.25em] hover:bg-[var(--surface-hover)] hover:text-[var(--text-main)] transition-all"
-                >
-                  Stay as Guest
                 </button>
               </div>
             </div>
@@ -537,8 +531,8 @@ export default function DashboardShell() {
                       <div className="flex flex-col gap-3 w-full max-w-full">
                         {msg.content && (
                           <div className={`px-5 py-3 rounded-2xl text-sm md:text-base leading-relaxed ${msg.role === 'user'
-                              ? 'bg-[var(--user-bubble)] text-[var(--text-main)] font-medium self-end'
-                              : 'bg-[var(--ai-bubble)] text-[var(--text-main)]'
+                            ? 'bg-[var(--user-bubble)] text-[var(--text-main)] font-medium self-end'
+                            : 'bg-[var(--ai-bubble)] text-[var(--text-main)]'
                             }`}>
                             {msg.content.split('\n').map((line: string, i: number) => (
                               <p key={i} className={line.trim() === '' ? 'h-4' : 'mb-2 last:mb-0'}>
@@ -574,14 +568,14 @@ export default function DashboardShell() {
 
                         {msg.role === 'assistant' && (
                           <div className="flex items-center gap-6 px-2 mt-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
-                            <button 
+                            <button
                               onClick={() => copyToClipboard(msg.content, msg.id)}
                               className="text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors p-1"
                               title="Copy to clipboard"
                             >
                               {copiedId === msg.id ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
                             </button>
-                            <button 
+                            <button
                               onClick={handleRegenerate}
                               className="text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors"
                               title="Regenerate"
@@ -710,8 +704,8 @@ export default function DashboardShell() {
                   <button
                     onClick={() => setIsModelMenuOpen(!isModelMenuOpen)}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] md:text-xs font-bold transition-all relative ${isModelMenuOpen
-                        ? 'bg-[var(--text-main)] text-[var(--background)]'
-                        : 'bg-[var(--surface-hover)] border border-[var(--border-dim)] text-[var(--text-main)] hover:bg-[var(--border-dim)]'
+                      ? 'bg-[var(--text-main)] text-[var(--background)]'
+                      : 'bg-[var(--surface-hover)] border border-[var(--border-dim)] text-[var(--text-main)] hover:bg-[var(--border-dim)]'
                       } disabled:opacity-30`}
                     disabled={isRecording || isTyping}
                   >
@@ -732,8 +726,8 @@ export default function DashboardShell() {
                       onClick={handleSend}
                       disabled={isTyping}
                       className={`p-2.5 rounded-full transition-all duration-300 flex items-center justify-center ${(input.trim() || attachedFile)
-                          ? 'bg-[var(--text-main)] text-[var(--background)] scale-110 shadow-lg'
-                          : 'bg-[var(--surface-hover)] text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                        ? 'bg-[var(--text-main)] text-[var(--background)] scale-110 shadow-lg'
+                        : 'bg-[var(--surface-hover)] text-[var(--text-muted)] hover:text-[var(--text-main)]'
                         } ${isTyping ? 'opacity-30 cursor-not-allowed' : ''}`}>
                       {isTyping ? <Loader2 className="w-5 h-5 animate-spin" /> : ((input.trim() || attachedFile) ? <ArrowUp className="w-5 h-5" /> : <Mic className="w-5 h-5" />)}
                     </button>
