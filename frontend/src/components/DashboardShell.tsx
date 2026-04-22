@@ -65,7 +65,8 @@ export default function DashboardShell() {
   const [isLimitModalOpen, setIsLimitModalOpen] = useState(false);
 
   useEffect(() => {
-    if (user?.email === 'test@example.com') {
+    const isGuest = user?.email === 'test@example.com' || user?.email?.startsWith('guest_');
+    if (isGuest) {
       const savedCount = localStorage.getItem('guest_chat_count');
       if (savedCount) setGuestChatCount(parseInt(savedCount));
     }
@@ -161,6 +162,12 @@ export default function DashboardShell() {
     // Remove last assistant message if any
     if (messages[messages.length - 1].role === 'assistant') {
       setMessages(prev => prev.slice(0, -1));
+    }
+
+    const isGuest = user?.email === 'test@example.com' || user?.email?.startsWith('guest_');
+    if (isGuest && guestChatCount >= 2) {
+      setIsLimitModalOpen(true);
+      return;
     }
 
     setIsTyping(true);
@@ -325,7 +332,8 @@ export default function DashboardShell() {
       }
 
       // Increment guest count on successful send
-      if (user?.email === 'test@example.com') {
+      const isGuest = user?.email === 'test@example.com' || user?.email?.startsWith('guest_');
+      if (isGuest) {
         incrementGuestChatCount();
       }
     } catch (err) {
@@ -433,28 +441,35 @@ export default function DashboardShell() {
 
       {/* Guest Limit Modal */}
       {isLimitModalOpen && (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="w-full max-w-md bg-[var(--surface)] border border-[var(--border-dim)] rounded-[2.5rem] p-8 shadow-2xl animate-in zoom-in-95 duration-300">
-            <div className="w-16 h-16 rounded-3xl bg-orange-500/10 flex items-center justify-center mb-6 mx-auto">
-              <Sparkles className="w-8 h-8 text-orange-500" />
-            </div>
-            <h2 className="text-2xl font-black text-center mb-3 tracking-tight">Upgrade Your Experience</h2>
-            <p className="text-[var(--text-muted)] text-center mb-8 leading-relaxed">
-              You've enjoyed your 2 free guest chats. Sign in now to unlock unlimited messaging, image generation, and chat history.
-            </p>
-            <div className="space-y-3">
-              <button 
-                onClick={() => router.push('/login')}
-                className="w-full py-4 bg-[var(--text-main)] text-[var(--background)] rounded-2xl font-black text-sm uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all shadow-xl"
-              >
-                Sign In Now
-              </button>
-              <button 
-                onClick={() => setIsLimitModalOpen(false)}
-                className="w-full py-4 bg-transparent border border-[var(--border-dim)] text-[var(--text-muted)] rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-[var(--surface-hover)] transition-all"
-              >
-                Maybe Later
-              </button>
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl animate-in fade-in duration-500">
+          <div className="w-full max-w-md bg-[var(--surface)]/80 border border-[var(--border-dim)] rounded-[3rem] p-10 shadow-2xl animate-in zoom-in-95 relative overflow-hidden group">
+            {/* Decorative background glow */}
+            <div className="absolute -top-24 -right-24 w-48 h-48 bg-orange-500/20 blur-[80px] rounded-full group-hover:bg-orange-500/30 transition-all duration-700" />
+            
+            <div className="relative z-10">
+              <div className="w-20 h-20 rounded-[2rem] bg-gradient-to-br from-orange-500 to-orange-600/20 flex items-center justify-center mb-8 mx-auto shadow-2xl shadow-orange-500/20">
+                <Sparkles className="w-10 h-10 text-white" />
+              </div>
+              <h2 className="text-3xl font-[900] text-center mb-4 tracking-tighter text-[var(--text-main)] uppercase">
+                Peak <span className="text-orange-500">AstraVex</span>
+              </h2>
+              <p className="text-[var(--text-muted)] text-center mb-10 leading-relaxed font-medium">
+                You've hit the guest limit. Join thousands of users unlocking <span className="text-[var(--text-main)] font-black">Unlimited Intelligence</span>, secure chat history, and premium AI generation.
+              </p>
+              <div className="space-y-4">
+                <button 
+                  onClick={() => router.push('/login')}
+                  className="w-full py-5 bg-orange-500 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] hover:bg-orange-600 hover:scale-[1.02] active:scale-95 transition-all shadow-2xl shadow-orange-500/40"
+                >
+                  Create Account / Sign In
+                </button>
+                <button 
+                  onClick={() => setIsLimitModalOpen(false)}
+                  className="w-full py-4 bg-transparent border border-[var(--border-dim)] text-[var(--text-muted)]/50 rounded-2xl font-black text-[10px] uppercase tracking-[0.25em] hover:bg-[var(--surface-hover)] hover:text-[var(--text-main)] transition-all"
+                >
+                  Stay as Guest
+                </button>
+              </div>
             </div>
           </div>
         </div>
