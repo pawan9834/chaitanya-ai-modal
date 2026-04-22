@@ -18,21 +18,46 @@ interface User {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
+  authToken: string | null;
   loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   setUser: (user: User | null) => void;
+  setAuthToken: (token: string | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [authToken, setAuthTokenState] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const token = Cookies.get('token') || localStorage.getItem('token');
+    return (token === 'null' || token === 'undefined' || !token) ? null : token;
+  });
+  
+  const setAuthToken = (token: string | null) => {
+    // Basic sanitization
+    const sanitizedToken = (token === 'null' || token === 'undefined' || !token) ? null : token;
+    
+    setAuthTokenState(sanitizedToken);
+    
+    if (sanitizedToken) {
+      Cookies.set('token', sanitizedToken, { expires: 7, sameSite: 'Lax' });
+      localStorage.setItem('token', sanitizedToken);
+    } else {
+      Cookies.remove('token');
+      localStorage.removeItem('token');
+    }
+  };
   const [loading, setLoading] = useState(true);
 
   const fetchUser = async () => {
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/me`, {
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': authToken ? `Bearer ${authToken}` : ''
+        },
         credentials: 'include'
       });
       if (res.ok) {
@@ -84,6 +109,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (res.ok) {
         const data = await res.json();
         setUser(data.user);
+        if (data.token) {
+          setAuthToken(data.token);
+        }
       }
     } catch (error: any) {
       console.error('Google Sign-In failed:', error);
@@ -96,14 +124,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = async () => {
     await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/logout`, { 
       method: 'POST',
+      headers: {
+        'Authorization': authToken ? `Bearer ${authToken}` : ''
+      },
       credentials: 'include'
     });
     setUser(null);
+    setAuthToken(null);
+    Cookies.remove('token');
     auth.signOut();
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, loginWithGoogle, logout, setUser }}>
+    <AuthContext.Provider value={{ user, loading, authToken, loginWithGoogle, logout, setUser, setAuthToken }}>
       {children}
     </AuthContext.Provider>
   );

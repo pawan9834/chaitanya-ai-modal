@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Search, 
@@ -43,6 +44,7 @@ export default function SearchModal({
   conversations, 
   onConversationSelect 
 }: SearchModalProps) {
+  const { authToken } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
   const [previewMessages, setPreviewMessages] = useState<Message[]>([]);
@@ -96,6 +98,9 @@ export default function SearchModal({
     setIsLoadingPreview(true);
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/chat/history?conversationId=${id}`, {
+        headers: {
+          ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
+        },
         credentials: 'include'
       });
       if (response.ok) {

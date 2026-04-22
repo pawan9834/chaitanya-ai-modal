@@ -25,7 +25,7 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const { setUser, loginWithGoogle } = useAuth();
+  const { setUser, setAuthToken, loginWithGoogle } = useAuth();
   const router = useRouter();
 
   const handleSendOtp = async (e: React.FormEvent) => {
@@ -61,6 +61,7 @@ export default function LoginPage() {
       });
       const data = await res.json();
       if (res.ok) {
+        if (data.token) setAuthToken(data.token);
         if (data.registered) {
           setUser(data.user);
           router.push('/');
@@ -83,6 +84,7 @@ export default function LoginPage() {
       });
       const data = await res.json();
       if (res.ok) {
+        if (data.token) setAuthToken(data.token);
         setUser(data.user);
         router.push('/');
       } else { setError(data.message || 'Registration failed'); }
@@ -106,6 +108,7 @@ export default function LoginPage() {
       });
       const data = await res.json();
       if (res.ok) {
+        if (data.token) setAuthToken(data.token);
         setUser(data.user);
         router.push('/');
       } else {

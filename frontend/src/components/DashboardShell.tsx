@@ -31,7 +31,7 @@ import {
 } from 'lucide-react';
 
 export default function DashboardShell() {
-  const { user, loading } = useAuth();
+   const { user, loading, authToken } = useAuth();
   const router = useRouter();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [input, setInput] = useState('');
@@ -99,6 +99,9 @@ export default function DashboardShell() {
     if (!user) return;
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/conversations`, {
+        headers: {
+          ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
+        },
         credentials: 'include'
       });
       if (response.ok) {
@@ -118,6 +121,9 @@ export default function DashboardShell() {
       }
       try {
         const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/chat/history?conversationId=${currentConversationId}`, {
+          headers: {
+            ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
+          },
           credentials: 'include'
         });
         if (response.ok) {
@@ -161,7 +167,10 @@ export default function DashboardShell() {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
+        },
         body: JSON.stringify({
           message: lastUserMsg.content,
           image: lastUserMsg.image,
@@ -292,7 +301,10 @@ export default function DashboardShell() {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
+        },
         body: JSON.stringify({
           message: currentInput,
           image: currentImage,

@@ -26,8 +26,8 @@ interface SettingsLayoutProps {
 }
 
 export default function SettingsLayout({ isMobile = false }: SettingsLayoutProps) {
-  const { user } = useAuth();
-  const { logout } = useAuth();
+  const { user, authToken, logout } = useAuth();
+  const { theme, setTheme } = useTheme();
   const [activeCategory, setActiveCategory] = useState<Category>('Account');
   const [confirming, setConfirming] = useState<null | 'conversations' | 'media' | 'account'>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -41,6 +41,9 @@ export default function SettingsLayout({ isMobile = false }: SettingsLayoutProps
 
       const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}${endpoint}`, {
         method: 'POST',
+        headers: {
+          'Authorization': authToken ? `Bearer ${authToken}` : ''
+        },
         credentials: 'include'
       });
 

@@ -52,15 +52,25 @@ app.use(cookieParser());
 // --- Authentication Middleware ---
 const authenticateToken = async (req, res, next) => {
   const authHeader = req.headers['authorization'];
-  const token = (authHeader && authHeader.split(' ')[1]) || req.cookies.token;
+  let token = req.cookies.token;
+
+  if (authHeader) {
+    const match = authHeader.match(/^Bearer\s+(.+)$/i);
+    if (match) {
+      token = match[1];
+    }
+  }
   
-  if (!token) return res.status(401).json({ message: 'Unauthorized' });
+  if (!token || token === 'null' || token === 'undefined') {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     req.user = decoded;
     next();
   } catch (err) {
+    console.error('[AUTH_TOKEN_ERROR]', err.message);
     return res.status(403).json({ message: 'Invalid token' });
   }
 };
@@ -210,8 +220,9 @@ app.post('/api/auth/guest-session', async (req, res) => {
 
     const token = jwt.sign({ email: userData.email, id: userData.email }, JWT_SECRET, { expiresIn: '7d' });
     res.cookie('token', token, {
-      httpOnly: true,
-      secure: false, // Set to true if using HTTPS in prod
+      httpOnly: false,
+      secure: false,
+      sameSite: 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000
     });
 
@@ -260,7 +271,7 @@ app.post('/api/auth/verify-otp', async (req, res) => {
         createdAt: new Date().toISOString()
       };
       const token = jwt.sign({ email: userData.email, id: userData.email }, JWT_SECRET, { expiresIn: '7d' });
-      res.cookie('token', token, { httpOnly: true, secure: false, maxAge: 7 * 24 * 60 * 60 * 1000 });
+      res.cookie('token', token, { httpOnly: false, secure: false, sameSite: 'lax', maxAge: 7 * 24 * 60 * 60 * 1000 });
       return res.json({ registered: true, user: userData, token });
     } else {
       return res.json({ registered: false, message: 'Please complete your profile' });
@@ -283,7 +294,7 @@ app.post('/api/auth/register', async (req, res) => {
     await db.collection('users').doc(email).set(userData);
 
     const token = jwt.sign({ email, id: email }, JWT_SECRET, { expiresIn: '7d' });
-    res.cookie('token', token, { httpOnly: true, secure: false, maxAge: 7 * 24 * 60 * 60 * 1000 });
+    res.cookie('token', token, { httpOnly: false, sameSite: 'lax', secure: false, maxAge: 7 * 24 * 60 * 60 * 1000 });
 
     res.json({ message: 'User registered successfully', user: userData, token });
   } catch (error) {
@@ -328,7 +339,7 @@ app.post('/api/auth/google', async (req, res) => {
     }
 
     const token = jwt.sign({ email, id: email }, JWT_SECRET, { expiresIn: '7d' });
-    res.cookie('token', token, { httpOnly: true, secure: false, maxAge: 7 * 24 * 60 * 60 * 1000 });
+    res.cookie('token', token, { httpOnly: false, sameSite: 'lax', secure: false, maxAge: 7 * 24 * 60 * 60 * 1000 });
 
     res.json({ message: 'Success', user: userData, token });
   } catch (error) {
