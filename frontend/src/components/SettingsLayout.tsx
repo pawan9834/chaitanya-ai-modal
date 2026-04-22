@@ -27,8 +27,41 @@ interface SettingsLayoutProps {
 
 export default function SettingsLayout({ isMobile = false }: SettingsLayoutProps) {
   const { user } = useAuth();
-  const { theme, setTheme } = useTheme();
+  const { logout } = useAuth();
   const [activeCategory, setActiveCategory] = useState<Category>('Account');
+  const [confirming, setConfirming] = useState<null | 'conversations' | 'media' | 'account'>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleAction = async (type: 'conversations' | 'media' | 'account') => {
+    setIsDeleting(true);
+    try {
+      const endpoint = type === 'conversations' ? '/api/user/delete-conversations' :
+                       type === 'media' ? '/api/user/delete-media' :
+                       '/api/user/delete-account';
+
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}${endpoint}`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+
+      if (res.ok) {
+        if (type === 'account') {
+          await logout();
+          window.location.href = '/login';
+        } else {
+          alert(`Successfully deleted ${type === 'conversations' ? 'all conversations' : 'all media'}.`);
+          setConfirming(null);
+        }
+      } else {
+        alert('Failed to process deletion. Please try again.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Network error. Please try again.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const categories = [
     { id: 'Account' as Category, icon: <User className="w-5 h-5" />, label: 'Account' },
@@ -103,6 +136,7 @@ export default function SettingsLayout({ isMobile = false }: SettingsLayoutProps
             
             {[
               {
+                id: 'conversations',
                 title: 'Delete All Conversations',
                 desc: 'Instantly wipe your entire chat history and memory.',
                 icon: <MessageSquare className="w-5 h-5" />,
@@ -110,6 +144,7 @@ export default function SettingsLayout({ isMobile = false }: SettingsLayoutProps
                 danger: false
               },
               {
+                id: 'media',
                 title: 'Delete All Imagine Media',
                 desc: 'Remove all AI-generated images and video assets.',
                 icon: <Zap className="w-5 h-5" />,
@@ -117,6 +152,7 @@ export default function SettingsLayout({ isMobile = false }: SettingsLayoutProps
                 danger: false
               },
               {
+                id: 'account',
                 title: 'Delete Account',
                 desc: 'Permanently remove your identity and all associated data from AstraVex. This cannot be undone.',
                 icon: <User className="w-5 h-5" />,
@@ -129,7 +165,7 @@ export default function SettingsLayout({ isMobile = false }: SettingsLayoutProps
                 className="p-6 bg-[var(--surface)] border border-[var(--border-dim)] rounded-[2rem] flex flex-col gap-6 group hover:border-[var(--border-bright)] transition-all"
               >
                 <div className="flex items-start gap-4">
-                  <div className={`p-3 rounded-2xl bg-[var(--surface-hover)] border border-[var(--border-dim)] ${item.danger ? 'text-red-500/50' : 'text-[var(--text-muted)]'}`}>
+                  <div className={`p-3 rounded-2xl bg-[var(--surface-hover)] border border-[var(--border-dim)] ${item.danger ? 'text-red-500/50 font-bold' : 'text-[var(--text-muted)]'}`}>
                     {item.icon}
                   </div>
                   <div className="space-y-1">
@@ -140,13 +176,55 @@ export default function SettingsLayout({ isMobile = false }: SettingsLayoutProps
                   </div>
                 </div>
                 <button 
-                  disabled
-                  className="w-full py-4 rounded-2xl text-[10px] font-black border border-[var(--border-dim)] bg-black/5 text-[var(--text-muted)] cursor-not-allowed uppercase tracking-widest"
+                  onClick={() => setConfirming(item.id as any)}
+                  className={`w-full py-4 rounded-2xl text-[10px] font-black border transition-all uppercase tracking-widest ${
+                    item.danger 
+                      ? 'border-red-500/20 bg-red-500/5 text-red-500 hover:bg-red-500 hover:text-white hover:border-red-500' 
+                      : 'border-[var(--border-dim)] bg-[var(--surface-hover)] text-[var(--text-main)] hover:border-[var(--border-bright)]'
+                  }`}
                 >
-                  Coming Soon
+                  {item.action}
                 </button>
               </div>
             ))}
+
+            {/* Confirmation Overlay */}
+            {confirming && (
+              <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+                <motion.div 
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="w-full max-w-md bg-[var(--surface)] border border-[var(--border-dim)] rounded-[2.5rem] p-8 shadow-2xl space-y-6"
+                >
+                  <div className="text-center space-y-2">
+                    <div className="w-16 h-16 rounded-3xl bg-red-500/10 text-red-500 flex items-center justify-center mx-auto mb-4">
+                       {confirming === 'conversations' ? <MessageSquare className="w-8 h-8" /> : confirming === 'media' ? <Zap className="w-8 h-8" /> : <User className="w-8 h-8" />}
+                    </div>
+                    <h3 className="text-xl font-black text-[var(--text-main)] uppercase tracking-tight">Confirm Deletion</h3>
+                    <p className="text-[var(--text-muted)] text-sm leading-relaxed">
+                      Are you absolutely sure you want to delete {confirming === 'account' ? 'your entire account' : confirming === 'conversations' ? 'all conversations' : 'all media assets'}? This action is permanent and cannot be reversed.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col gap-3 pt-2">
+                    <button 
+                      onClick={() => handleAction(confirming)}
+                      disabled={isDeleting}
+                      className="w-full py-4 rounded-2xl bg-red-500 text-white text-[11px] font-black uppercase tracking-widest hover:bg-red-600 transition-all disabled:opacity-50"
+                    >
+                      {isDeleting ? 'Processing...' : 'Confirm Delete'}
+                    </button>
+                    <button 
+                      onClick={() => setConfirming(null)}
+                      disabled={isDeleting}
+                      className="w-full py-4 rounded-2xl border border-[var(--border-dim)] text-[var(--text-muted)] text-[11px] font-black uppercase tracking-widest hover:bg-[var(--surface-hover)] transition-all"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </motion.div>
+              </div>
+            )}
           </div>
         );
       case 'Appearance':

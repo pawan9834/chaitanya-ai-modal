@@ -524,6 +524,71 @@ app.get('/api/conversations', authenticateToken, async (req, res) => {
   }
 });
 
+// --- Data Control Endpoints ---
+
+// 1. Delete all conversations
+app.post('/api/user/delete-conversations', authenticateToken, async (req, res) => {
+  try {
+    if (!db) return res.status(500).json({ message: 'Database not initialized' });
+    const userEmail = req.user.id;
+    const conversationsRef = db.collection('users').doc(userEmail).collection('conversations');
+    
+    // Recursive delete is supported by Admin SDK
+    await db.recursiveDelete(conversationsRef);
+    
+    res.json({ message: 'All conversations and history deleted' });
+  } catch (error) {
+    console.error('[DELETE_CONVS] Error:', error);
+    res.status(500).json({ message: 'Failed to delete conversations' });
+  }
+});
+
+// 2. Delete all images (Wipe image fields in all messages)
+app.post('/api/user/delete-media', authenticateToken, async (req, res) => {
+  try {
+    if (!db) return res.status(500).json({ message: 'Database not initialized' });
+    const userEmail = req.user.id;
+    const conversationsSnapshot = await db.collection('users').doc(userEmail).collection('conversations').get();
+
+    const batch = db.batch();
+    for (const convDoc of conversationsSnapshot.docs) {
+      const messagesSnapshot = await convDoc.ref.collection('messages').get();
+      messagesSnapshot.forEach(msgDoc => {
+        if (msgDoc.data().image) {
+          batch.update(msgDoc.ref, { image: admin.firestore.FieldValue.delete() });
+        }
+      });
+    }
+    
+    await batch.commit();
+    res.json({ message: 'All media and generated images deleted' });
+  } catch (error) {
+    console.error('[DELETE_MEDIA] Error:', error);
+    res.status(500).json({ message: 'Failed to delete media' });
+  }
+});
+
+// 3. Delete Account (Full Wipe)
+app.post('/api/user/delete-account', authenticateToken, async (req, res) => {
+  try {
+    if (!db) return res.status(500).json({ message: 'Database not initialized' });
+    const userEmail = req.user.id;
+    const userRef = db.collection('users').doc(userEmail);
+    
+    // Recursive delete the entire user document and all subcollections
+    await db.recursiveDelete(userRef);
+    
+    // If they have a Firebase Auth account, we could also delete it here:
+    // await admin.auth().deleteUser(userEmail).catch(() => {});
+
+    res.clearCookie('token');
+    res.json({ message: 'Account and all data permanently deleted' });
+  } catch (error) {
+    console.error('[DELETE_ACCOUNT] Error:', error);
+    res.status(500).json({ message: 'Failed to delete account' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
