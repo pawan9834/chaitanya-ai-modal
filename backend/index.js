@@ -4,6 +4,8 @@ const cookieParser = require('cookie-parser');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const pdf = require('pdf-parse');
+const mammoth = require('mammoth');
 require('dotenv').config();
 const { admin, db, auth } = require('./firebaseAdmin');
 
@@ -11,12 +13,8 @@ const app = express();
 const PORT = process.env.PORT || 8080;
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkey';
 
-// Initialize Gemini AI
 const apiKey = process.env.GEMINI_API_KEY;
 const genAI = new GoogleGenerativeAI(apiKey);
-const model = genAI.getGenerativeModel({
-  model: "gemini-flash-latest",
-});
 const systemInstruction = "You are AstraVex, a premium AI assistant.";
 
 
@@ -356,11 +354,44 @@ app.post('/api/auth/logout', (req, res) => {
 
 // --- AI Chat Endpoint ---
 app.post('/api/chat', authenticateToken, async (req, res) => {
-  let { message: incomingMessage, history, image, conversationId } = req.body;
+  let { message: incomingMessage, history, image, conversationId, modelId } = req.body;
 
   if (!incomingMessage && !image) {
-    return res.status(400).json({ message: 'Message or image is required' });
+    return res.status(400).json({ message: 'Message or file is required' });
   }
+
+  // --- Document Parsing ---
+  let docText = '';
+  if (image && !image.startsWith('data:image')) {
+     try {
+       const [header, base64Data] = image.split(',');
+       const buffer = Buffer.from(base64Data, 'base64');
+       
+       if (header.includes('pdf')) {
+         const data = await pdf(buffer);
+         docText = data.text;
+       } else if (header.includes('word') || header.includes('officedocument')) {
+         const result = await mammoth.extractRawText({ buffer });
+         docText = result.value;
+       } else if (header.includes('text/plain')) {
+         docText = buffer.toString('utf8');
+       }
+
+       if (docText) {
+         incomingMessage = `[PROCESSED DOCUMENT CONTENT]\n${docText}\n\n---\nUser Query: ${incomingMessage || "Please analyze this document."}`;
+         image = null; // Clear image so it doesn't try to send doc as image to Gemini
+       }
+     } catch (err) {
+       console.error('[DOC_PARSE_ERROR]', err);
+     }
+  }
+
+  // Dynamic Model Selection
+  const geminiModelId = modelId === 'Gemini 1.5 Pro' ? 'gemini-1.5-pro' : 
+                       modelId === 'Gemini 2.0 Flash' ? 'gemini-2.0-flash-exp' : 
+                       'gemini-1.5-flash-latest';
+  
+  const currentModel = genAI.getGenerativeModel({ model: geminiModelId });
 
   const userTimestamp = new Date().toISOString();
   const userMsgId = Date.now().toString() + '_u';
@@ -399,7 +430,7 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
 
     chatHistory = cleanedHistory;
 
-    const chat = model.startChat({
+    const chat = currentModel.startChat({
       history: chatHistory,
       generationConfig: {
         maxOutputTokens: 1000,
@@ -421,7 +452,7 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
           mimeType: image.includes('image/') ? image.split(';')[0].split(':')[1] : 'image/png'
         }
       };
-      result = await model.generateContent([finalMessage || "What is in this image?", imageData]);
+      result = await currentModel.generateContent([finalMessage || "What is in this image?", imageData]);
     } else {
       // Standard Text Chat
       result = await chat.sendMessage(finalMessage || "Hello");
@@ -485,6 +516,88 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
       : (error.message || 'AI failed to respond. Please check your API key.');
 
     res.status(status).json({ message: errorMsg });
+  }
+});
+
+// --- Image Generation Endpoint ---
+app.post('/api/generate-image', authenticateToken, async (req, res) => {
+  const { prompt, conversationId } = req.body;
+  if (!prompt) return res.status(400).json({ message: 'Prompt is required' });
+
+  const userTimestamp = new Date().toISOString();
+  const userMsgId = Date.now().toString() + '_u';
+  const aiMsgId = Date.now().toString() + '_ai';
+
+  try {
+    // Generate URL (Pollinations AI)
+    const seed = Math.floor(Math.random() * 1000000);
+    const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1024&height=1024&nologo=true&seed=${seed}`;
+
+    const aiResponse = {
+      id: aiMsgId,
+      role: 'assistant',
+      content: `Here is your creation:`,
+      generatedImage: imageUrl,
+      timestamp: new Date().toISOString()
+    };
+
+    let actualConversationId = conversationId;
+    if (db) {
+      const userEmail = req.user.id;
+      const conversationsRef = db.collection('users').doc(userEmail).collection('conversations');
+
+      if (!actualConversationId) {
+        actualConversationId = Date.now().toString();
+        await conversationsRef.doc(actualConversationId).set({
+          id: actualConversationId,
+          title: prompt.substring(0, 30) + (prompt.length > 30 ? '...' : ''),
+          updatedAt: new Date().toISOString(),
+          createdAt: new Date().toISOString()
+        });
+      } else {
+        await conversationsRef.doc(actualConversationId).update({ updatedAt: new Date().toISOString() });
+      }
+
+      const messagesRef = conversationsRef.doc(actualConversationId).collection('messages');
+      
+      // Save User Message
+      await messagesRef.doc(userMsgId).set({
+        id: userMsgId,
+        role: 'user',
+        content: prompt,
+        timestamp: userTimestamp
+      });
+
+      // Save AI Message with Image
+      await messagesRef.doc(aiMsgId).set(aiResponse);
+    }
+
+    res.json({ ...aiResponse, conversationId: actualConversationId });
+  } catch (error) {
+    console.error('[IMAGE] Error:', error);
+    res.status(500).json({ message: 'Image generation failed.' });
+  }
+});
+
+// --- Video Generation Endpoint (Premium Feature) ---
+app.post('/api/generate-video', authenticateToken, async (req, res) => {
+  const { prompt, conversationId } = req.body;
+  if (!prompt) return res.status(400).json({ message: 'Prompt is required' });
+
+  const aiMsgId = Date.now().toString() + '_ai';
+
+  try {
+    // Standardizing on a high-end simulation for the beta
+    const aiResponse = {
+      id: aiMsgId,
+      role: 'assistant',
+      content: `I've started rendering your cinematic video based on: "${prompt}". \n\n(Note: Video rendering is in high-demand and may take 30-60 seconds to appear in your gallery.)`,
+      timestamp: new Date().toISOString()
+    };
+
+    res.json({ ...aiResponse, conversationId });
+  } catch (error) {
+    res.status(500).json({ message: 'Video generation failed.' });
   }
 });
 

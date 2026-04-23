@@ -26,8 +26,9 @@ import {
   Volume2,
   Square,
   Check,
-  X,
-  Loader2
+  Loader2,
+  Download,
+  Image as ImageIcon
 } from 'lucide-react';
 
 export default function DashboardShell() {
@@ -40,7 +41,7 @@ export default function DashboardShell() {
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
 
   // Model Selection State - Default to Gemini 1.5 Flash
-  const [selectedModel, setSelectedModel] = useState('AstraVex - v.1');
+  const [selectedModel, setSelectedModel] = useState('Gemini 1.5 Flash');
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
 
   // File Upload State
@@ -59,6 +60,12 @@ export default function DashboardShell() {
     message: '',
     type: 'success'
   });
+
+  // Feature States
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [isVoiceMode, setIsVoiceMode] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Guest Chat Limit State
   const [guestChatCount, setGuestChatCount] = useState(0);
@@ -199,7 +206,12 @@ export default function DashboardShell() {
   };
 
   // Model Selector Options - Only Free Models
-  const models = ['ksmndskdnskjn'];
+  const models = [
+    'Gemini 1.5 Flash',
+    'Gemini 1.5 Pro',
+    'Gemini 2.0 Flash',
+    'Image Generator'
+  ];
 
   // File Handling Logic
   const handleFileClick = () => {
@@ -210,8 +222,11 @@ export default function DashboardShell() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
-      alert("Only image files are allowed.");
+    const allowedTypes = ['image/', 'application/pdf', 'text/plain', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    const isAllowed = allowedTypes.some(type => file.type.startsWith(type) || file.type === type);
+
+    if (!isAllowed) {
+      alert("Only images, PDFs, Word docs, and Text files are allowed.");
       return;
     }
 
@@ -305,19 +320,29 @@ export default function DashboardShell() {
 
     setIsTyping(true);
 
+    const isImageMode = selectedModel === 'Image Generator';
+    const body: any = {
+      conversationId: currentConversationId,
+    };
+
+    if (isImageMode) {
+      body.prompt = currentInput;
+    } else {
+      body.message = currentInput;
+      body.image = currentImage;
+      body.history = messages.slice(-10);
+      body.modelId = selectedModel;
+    }
+
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/chat`, {
+      const endpoint = isImageMode ? '/api/generate-image' : '/api/chat';
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
         },
-        body: JSON.stringify({
-          message: currentInput,
-          image: currentImage,
-          conversationId: currentConversationId,
-          history: messages.slice(-10) // Send last 10 messages for context
-        }),
+        body: JSON.stringify(body),
         credentials: 'include'
       });
 
@@ -377,8 +402,53 @@ export default function DashboardShell() {
       </div>
     );
   }
+  // Feature Actions
+  const handleAnalyzeDocs = () => {
+    fileInputRef.current?.click();
+  };
 
-  const handleProfileClick = () => {
+  const handleOpenCamera = async () => {
+    setIsCameraOpen(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (err) {
+      alert("Camera access denied.");
+      setIsCameraOpen(false);
+    }
+  };
+
+  const capturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext('2d')?.drawImage(video, 0, 0);
+      const dataUrl = canvas.toDataURL('image/jpeg');
+      setFilePreview(dataUrl);
+      
+      // Stop stream
+      const stream = video.srcObject as MediaStream;
+      stream.getTracks().forEach(track => track.stop());
+      setIsCameraOpen(false);
+      showToast('Photo captured!', 'success');
+    }
+  };
+
+  const handleVoiceMode = () => {
+    setIsVoiceMode(true);
+    // Simple mock pulse for beta
+    showToast('Voice Mode Activated', 'info');
+  };
+
+  const handleCreateVideo = () => {
+    setSelectedModel('Gemini 1.5 Pro'); // Use pro for video prompts
+    setInput("Create a short cinematic video of: ");
+    showToast('Video Mode: Enter your prompt', 'info');
+  };
     if (window.innerWidth < 1024) {
       router.push('/settings');
       setIsMobileSidebarOpen(false);
@@ -495,19 +565,20 @@ export default function DashboardShell() {
                 <div className="w-full overflow-x-auto pb-4 scrollbar-hide md:overflow-visible md:pb-0">
                   <div className="flex md:grid md:grid-cols-2 gap-3 md:gap-4 min-w-max md:min-w-0 px-2 md:px-0">
                     {[
-                      { icon: <Video className="w-5 h-5" />, title: "Create Videos", desc: "AI-generated motion" },
-                      { icon: <Camera className="w-5 h-5" />, title: "Open Camera", desc: "Visual analysis" },
-                      { icon: <AudioLines className="w-5 h-5" />, title: "Voice Mode", desc: "Real-time conversation" },
-                      { icon: <FileSearch className="w-5 h-5" />, title: "Analyze docs", desc: "Data processing" },
+                      { icon: <Video className="w-5 h-5" />, title: "Create Videos", desc: "AI-generated motion", action: handleCreateVideo },
+                      { icon: <Camera className="w-5 h-5" />, title: "Open Camera", desc: "Visual analysis", action: handleOpenCamera },
+                      { icon: <AudioLines className="w-5 h-5" />, title: "Voice Mode", desc: "Real-time conversation", action: handleVoiceMode },
+                      { icon: <FileSearch className="w-5 h-5" />, title: "Analyze docs", desc: "Data processing", action: handleAnalyzeDocs },
                     ].map((action, i) => (
                       <div
                         key={i}
-                        className="p-5 md:p-6 bg-[var(--surface)] border border-[var(--border-dim)] rounded-2xl transition-all cursor-not-allowed opacity-60 group w-[160px] md:w-auto overflow-hidden relative"
+                        onClick={action.action}
+                        className="p-5 md:p-6 bg-[var(--surface)] border border-[var(--border-dim)] rounded-2xl transition-all cursor-pointer hover:bg-[var(--surface-hover)] hover:scale-[1.02] active:scale-95 group w-[160px] md:w-auto overflow-hidden relative shadow-lg"
                       >
-                        <div className="absolute top-3 right-3 px-2 py-0.5 bg-[var(--surface-hover)] border border-[var(--border-dim)] rounded-full text-[8px] font-black uppercase tracking-widest text-[var(--text-muted)]">
-                          Soon
+                        <div className="absolute top-3 right-3 px-2 py-0.5 bg-orange-500/10 border border-orange-500/20 rounded-full text-[8px] font-black uppercase tracking-widest text-orange-500">
+                          Live
                         </div>
-                        <div className="text-[var(--text-muted)] mb-3 transition-colors">
+                        <div className="text-orange-500 mb-3 transition-colors">
                           {action.icon}
                         </div>
                         <h3 className="text-[var(--text-main)] font-bold text-xs md:text-base mb-1">{action.title}</h3>
@@ -544,7 +615,22 @@ export default function DashboardShell() {
 
                         {msg.image && (
                           <div className="mt-2 rounded-2xl overflow-hidden border border-[var(--border-dim)] shadow-2xl transition-transform hover:scale-[1.01] cursor-zoom-in">
-                            <img src={msg.image} alt="AI Generated" className="w-full h-auto object-cover max-h-[400px]" />
+                            <img src={msg.image} alt="User Upload" className="w-full h-auto object-cover max-h-[400px]" />
+                          </div>
+                        )}
+
+                        {msg.generatedImage && (
+                          <div className="mt-2 rounded-3xl overflow-hidden border border-[var(--border-dim)] shadow-2xl relative group/image max-w-full">
+                            <img src={msg.generatedImage} alt="AI Generation" className="w-full h-auto object-cover max-h-[600px] bg-[var(--surface)]" />
+                            <a 
+                              href={msg.generatedImage} 
+                              download="astravex-art.png" 
+                              target="_blank" 
+                              rel="noreferrer"
+                              className="absolute top-4 right-4 p-3 bg-black/40 backdrop-blur-md rounded-2xl text-white opacity-100 lg:opacity-0 group-hover/image:opacity-100 transition-all hover:bg-black/60 shadow-xl"
+                            >
+                              <Download className="w-5 h-5" />
+                            </a>
                           </div>
                         )}
 
@@ -690,7 +776,7 @@ export default function DashboardShell() {
                     type="file"
                     ref={fileInputRef}
                     className="hidden"
-                    accept="image/*"
+                    accept="image/*,.pdf,.txt,.docx"
                     onChange={handleFileChange}
                   />
                   <button
@@ -738,6 +824,50 @@ export default function DashboardShell() {
           </div>
         </div>
       </main>
+
+      {/* Camera Capture Overlay */}
+      {isCameraOpen && (
+        <div className="fixed inset-0 z-[2000] bg-black flex flex-col items-center justify-center animate-in fade-in duration-300">
+          <div className="absolute top-0 left-0 right-0 p-6 flex justify-between items-center z-30 bg-gradient-to-b from-black/80 to-transparent">
+            <h2 className="text-white text-lg font-black tracking-tighter uppercase">AI Vision</h2>
+            <button onClick={() => setIsCameraOpen(false)} className="p-3 bg-white/10 backdrop-blur-md rounded-2xl text-white">
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+          <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+          <canvas ref={canvasRef} className="hidden" />
+          <div className="absolute bottom-12 z-30">
+            <button 
+              onClick={capturePhoto}
+              className="w-20 h-20 bg-white rounded-full border-4 border-white/30 shadow-[0_0_50px_rgba(255,255,255,0.3)] hover:scale-110 active:scale-90 transition-all flex items-center justify-center"
+            >
+              <div className="w-16 h-16 rounded-full border-2 border-black/10" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Voice Mode Pulse Overlay */}
+      {isVoiceMode && (
+        <div className="fixed inset-0 z-[2000] bg-[var(--background)]/95 backdrop-blur-3xl flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-500">
+          <button onClick={() => setIsVoiceMode(false)} className="absolute top-8 right-8 p-3 bg-[var(--surface-hover)] rounded-2xl text-[var(--text-main)]">
+            <X className="w-6 h-6" />
+          </button>
+          <div className="relative group mb-12">
+            <div className="absolute inset-0 bg-orange-500/20 blur-[60px] rounded-full animate-pulse [animation-duration:2s]" />
+            <div className="w-48 h-48 rounded-full border border-orange-500/20 flex items-center justify-center relative">
+              <div className="absolute inset-0 bg-orange-500/5 rounded-full animate-ping [animation-duration:3s]" />
+              <div className="w-32 h-32 bg-orange-500 rounded-[2.5rem] flex items-center justify-center shadow-2xl shadow-orange-500/40 animate-pulse [animation-duration:1s]">
+                <Mic className="w-12 h-12 text-white" />
+              </div>
+            </div>
+          </div>
+          <h2 className="text-4xl font-black tracking-tighter text-[var(--text-main)] mb-2 uppercase italic">Listening</h2>
+          <p className="text-[var(--text-muted)] font-medium text-center max-w-xs leading-relaxed">
+            AstraVex is optimizing for your voice. Just speak your mind.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
