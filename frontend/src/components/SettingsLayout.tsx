@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import {
   User,
@@ -36,6 +36,7 @@ export default function SettingsLayout({ isMobile = false, onDataCleared }: Sett
   const [activeCategory, setActiveCategory] = useState<Category>('Account');
   const [confirming, setConfirming] = useState<null | 'conversations' | 'media' | 'account'>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [direction, setDirection] = useState(0); // 1 for next, -1 for prev
 
   const handleAction = async (type: 'conversations' | 'media' | 'account') => {
     setIsDeleting(true);
@@ -83,6 +84,26 @@ export default function SettingsLayout({ isMobile = false, onDataCleared }: Sett
     { id: 'Data Controls' as Category, icon: <Database className="w-5 h-5" />, label: 'Data Controls' },
     { id: 'Legal' as Category, icon: <ShieldCheck className="w-5 h-5" />, label: 'Legal' },
   ];
+
+  const handleSwipe = (dir: 'left' | 'right') => {
+    const currentIndex = categories.findIndex(c => c.id === activeCategory);
+    let nextIndex;
+    if (dir === 'left') {
+      nextIndex = (currentIndex + 1) % categories.length;
+      setDirection(1);
+    } else {
+      nextIndex = (currentIndex - 1 + categories.length) % categories.length;
+      setDirection(-1);
+    }
+    setActiveCategory(categories[nextIndex].id);
+  };
+
+  const changeCategory = (newId: Category) => {
+    const currentIndex = categories.findIndex(c => c.id === activeCategory);
+    const nextIndex = categories.findIndex(c => c.id === newId);
+    setDirection(nextIndex > currentIndex ? 1 : -1);
+    setActiveCategory(newId);
+  };
 
   const renderContent = () => {
     switch (activeCategory) {
@@ -350,11 +371,11 @@ export default function SettingsLayout({ isMobile = false, onDataCleared }: Sett
         {categories.map((cat) => (
           <button
             key={cat.id}
-            onClick={() => setActiveCategory(cat.id)}
+            onClick={() => changeCategory(cat.id)}
             className={`${isMobile ? 'inline-flex flex-col items-center justify-center px-4 py-2 min-w-[80px]' : 'w-full text-left p-4 rounded-2xl flex items-center gap-4'} transition-all group relative overflow-hidden ${activeCategory === cat.id
-                ? 'bg-[var(--surface-hover)] ring-1 ring-[var(--border-bright)]'
-                : 'hover:bg-[var(--surface-hover)]'
-              }`}
+                 ? 'bg-[var(--surface-hover)] ring-1 ring-[var(--border-bright)]'
+                 : 'hover:bg-[var(--surface-hover)]'
+               }`}
           >
             <div className={`transition-colors ${activeCategory === cat.id ? 'text-[var(--text-main)]' : 'text-[var(--text-muted)] group-hover:text-[var(--text-main)]'} ${isMobile ? 'mb-1' : 'p-1.5 rounded-lg'}`}>
               {cat.icon}
@@ -374,10 +395,47 @@ export default function SettingsLayout({ isMobile = false, onDataCleared }: Sett
       </div>
 
       {/* Main Content Pane */}
-      <div className={`flex-grow overflow-y-auto scrollbar-hide bg-black/10 ${isMobile ? 'p-6' : 'p-10'}`}>
-        <div className="max-w-2xl mx-auto h-full">
-          {renderContent()}
-        </div>
+      <div className={`flex-grow overflow-hidden bg-black/10`}>
+        <motion.div 
+          className={`h-full overflow-y-auto scrollbar-hide ${isMobile ? 'p-6' : 'p-10'}`}
+          onPanEnd={(e, info) => {
+            const threshold = 50;
+            if (info.offset.x < -threshold) handleSwipe('left');
+            if (info.offset.x > threshold) handleSwipe('right');
+          }}
+        >
+          <div className="max-w-2xl mx-auto h-full">
+            <AnimatePresence mode="wait" initial={false} custom={direction}>
+              <motion.div
+                key={activeCategory}
+                custom={direction}
+                variants={{
+                  enter: (dir: number) => ({
+                    x: dir > 0 ? 50 : -50,
+                    opacity: 0
+                  }),
+                  center: {
+                    x: 0,
+                    opacity: 1
+                  },
+                  exit: (dir: number) => ({
+                    x: dir > 0 ? -50 : 50,
+                    opacity: 0
+                  })
+                }}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{
+                  x: { type: "spring", stiffness: 300, damping: 30 },
+                  opacity: { duration: 0.2 }
+                }}
+              >
+                {renderContent()}
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        </motion.div>
       </div>
     </div>
   );
