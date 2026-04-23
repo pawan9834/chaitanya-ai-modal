@@ -23,6 +23,8 @@ export default function LoginPage() {
   const [otp, setOtp] = useState('');
   const [name, setName] = useState('');
   const [profession, setProfession] = useState('');
+  const [customProfession, setCustomProfession] = useState('');
+  const [dob, setDob] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -77,10 +79,11 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
     try {
+      const finalProfession = profession === 'Other' ? customProfession : profession;
       const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, name, profession }),
+        body: JSON.stringify({ email, name, profession: finalProfession, dob }),
         credentials: 'include',
       });
       const data = await res.json();
@@ -211,15 +214,49 @@ export default function LoginPage() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                 />
-                <input
-                  type="text"
-                  placeholder="Profession"
-                  required
-                  className="w-full grok-input"
-                  value={profession}
-                  onChange={(e) => setProfession(e.target.value)}
-                />
-                <button type="submit" disabled={loading} className="w-full grok-button-primary">
+                
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] ml-1">Date of Birth</label>
+                  <input
+                    type="date"
+                    required
+                    className="w-full grok-input"
+                    value={dob}
+                    onChange={(e) => setDob(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <select
+                    required
+                    className="w-full grok-input cursor-pointer"
+                    value={profession}
+                    onChange={(e) => setProfession(e.target.value)}
+                  >
+                    <option value="" disabled>Select Profession</option>
+                    <option value="Software Engineer">Software Engineer</option>
+                    <option value="Data Scientist">Data Scientist</option>
+                    <option value="Designer">Designer</option>
+                    <option value="Student">Student</option>
+                    <option value="Marketer">Marketer</option>
+                    <option value="Entrepreneur">Entrepreneur</option>
+                    <option value="Content Creator">Content Creator</option>
+                    <option value="Other">Other</option>
+                  </select>
+
+                  {profession === 'Other' && (
+                    <input
+                      type="text"
+                      placeholder="Enter your profession"
+                      required
+                      className="w-full grok-input animate-in fade-in slide-in-from-top-2"
+                      value={customProfession}
+                      onChange={(e) => setCustomProfession(e.target.value)}
+                    />
+                  )}
+                </div>
+
+                <button type="submit" disabled={loading} className="w-full grok-button-primary mt-4">
                   {loading ? 'Saving...' : 'Enter AstraVex'}
                 </button>
               </form>

@@ -79,6 +79,10 @@ app.get('/api/hello', (req, res) => {
   res.json({ message: 'Welcome to AstraVex - System Online!' });
 });
 
+app.get('/api/version', (req, res) => {
+  res.json({ version: '1.0.5', timestamp: '2026-04-23T16:07' });
+});
+
 // Diagnostic endpoint to check Firebase status
 app.get('/api/debug/firebase', async (req, res) => {
   const hasB64 = !!process.env.FIREBASE_SERVICE_ACCOUNT_B64;
@@ -282,13 +286,13 @@ app.post('/api/auth/verify-otp', async (req, res) => {
 
 // Step 3: Register / Complete Profile
 app.post('/api/auth/register', async (req, res) => {
-  const { email, name, profession } = req.body;
+  const { email, name, profession, dob } = req.body;
   if (!email || !name || !profession) return res.status(400).json({ message: 'All fields are required' });
 
   try {
     if (!db) return res.status(500).json({ message: 'Database not initialized' });
 
-    const userData = { email, name, profession, createdAt: new Date().toISOString() };
+    const userData = { email, name, profession, dob: dob || null, createdAt: new Date().toISOString() };
     await db.collection('users').doc(email).set(userData);
 
     const token = jwt.sign({ email, id: email }, JWT_SECRET, { expiresIn: '7d' });
@@ -382,15 +386,24 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
          image = null; // Clear image so it doesn't try to send doc as image to Gemini
        }
      } catch (err) {
-       console.error('[DOC_PARSE_ERROR]', err);
+      console.error('[DOC_PARSE_ERROR]', err);
      }
   }
 
   // Dynamic Model Selection
-  const geminiModelId = modelId === 'Gemini 1.5 Pro' ? 'gemini-1.5-pro' : 
-                       modelId === 'Gemini 2.0 Flash' ? 'gemini-2.0-flash-exp' : 
-                       'gemini-1.5-flash-latest';
-  
+    // Map branded names to technical IDs
+    let geminiModelId = 'gemini-1.5-flash-latest';
+    switch (modelId) {
+      case 'AstraVex - Pro':
+        geminiModelId = 'gemini-1.5-pro';
+        break;
+      case 'AstraVex - Ultra':
+        geminiModelId = 'gemini-2.0-flash-exp';
+        break;
+      case 'AstraVex - Flash':
+      default:
+        geminiModelId = 'gemini-1.5-flash-latest';
+    }
   const currentModel = genAI.getGenerativeModel({ model: geminiModelId });
 
   const userTimestamp = new Date().toISOString();
@@ -715,6 +728,35 @@ app.post('/api/user/delete-account', authenticateToken, async (req, res) => {
   }
 });
 
+// --- NEW: Update User Profile ---
+app.post('/api/user/profile', authenticateToken, async (req, res) => {
+  const { name, profession, dob } = req.body;
+  const userEmail = req.user.id;
+
+  try {
+    if (!db) return res.status(500).json({ message: 'Database not initialized' });
+
+    const updateData = {};
+    if (name) updateData.name = name;
+    if (profession) updateData.profession = profession;
+    if (dob) updateData.dob = dob;
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ message: 'No fields to update' });
+    }
+
+    await db.collection('users').doc(userEmail).update(updateData);
+    
+    // Fetch updated user
+    const userDoc = await db.collection('users').doc(userEmail).get();
+    res.json({ message: 'Profile updated successfully', user: userDoc.data() });
+  } catch (error) {
+    console.error('[PROFILE_UPDATE] Error:', error);
+    res.status(500).json({ message: 'Failed to update profile' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
+// Trigger Rebuild

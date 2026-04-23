@@ -11,6 +11,7 @@ interface User {
   email: string;
   name: string;
   profession: string;
+  dob?: string;
   picture?: string;
   createdAt: string;
 }

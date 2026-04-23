@@ -31,12 +31,77 @@ interface SettingsLayoutProps {
 }
 
 export default function SettingsLayout({ isMobile = false, onDataCleared }: SettingsLayoutProps) {
-  const { user, authToken, logout } = useAuth();
+  const { user, authToken, logout, setUser } = useAuth();
   const { theme, setTheme } = useTheme();
   const [activeCategory, setActiveCategory] = useState<Category>('Account');
   const [confirming, setConfirming] = useState<null | 'conversations' | 'media' | 'account'>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  
+  // Profile Editable State
+  const [editName, setEditName] = useState(user?.name || '');
+  const [editDob, setEditDob] = useState(user?.dob || '');
+  const [editProfession, setEditProfession] = useState(user?.profession || '');
+  const [customProfession, setCustomProfession] = useState('');
+  const [isOtherProfession, setIsOtherProfession] = useState(false);
+
+  React.useEffect(() => {
+    if (user) {
+      setEditName(user.name);
+      setEditDob(user.dob || '');
+      
+      const professionOptions = [
+        'Software Engineer', 'Data Scientist', 'Designer', 'Student', 
+        'Marketer', 'Entrepreneur', 'Content Creator'
+      ];
+      
+      if (user.profession && !professionOptions.includes(user.profession)) {
+        setEditProfession('Other');
+        setCustomProfession(user.profession);
+        setIsOtherProfession(true);
+      } else {
+        setEditProfession(user.profession || '');
+        setIsOtherProfession(false);
+      }
+    }
+  }, [user]);
+
   const [direction, setDirection] = useState(0); // 1 for next, -1 for prev
+
+  const handleSaveProfile = async () => {
+    setIsSaving(true);
+    try {
+      const finalProfession = editProfession === 'Other' ? customProfession : editProfession;
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/user/profile`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': authToken ? `Bearer ${authToken}` : ''
+        },
+        body: JSON.stringify({
+          name: editName,
+          profession: finalProfession,
+          dob: editDob
+        }),
+        credentials: 'include'
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.user) {
+          setUser(data.user);
+        }
+        alert('Profile updated successfully!');
+      } else {
+        alert('Failed to update profile.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error updating profile.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const handleAction = async (type: 'conversations' | 'media' | 'account') => {
     setIsDeleting(true);
@@ -134,22 +199,67 @@ export default function SettingsLayout({ isMobile = false, onDataCleared }: Sett
 
 
 
-            {/* Multi-line Settings */}
-            <div className="pt-2 space-y-2">
-              <div className="flex items-center justify-between p-2">
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-bold text-[var(--text-main)]">Language</span>
-                  <Languages className="w-4 h-4 text-[var(--text-muted)] opacity-50" />
-                </div>
-                <button className="text-[var(--text-muted)] hover:text-[var(--text-main)] font-black text-[10px] uppercase tracking-[0.2em] px-5 py-2 bg-[var(--surface-hover)] border border-[var(--border-dim)] rounded-full transition-all">Change</button>
+            {/* Multi-line Settings - Editable Profile */}
+            <div className="space-y-6 pt-4">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] ml-1">Full Name</label>
+                <input 
+                  type="text" 
+                  className="w-full bg-[var(--surface)] border border-[var(--border-dim)] rounded-2xl px-5 py-3 text-sm focus:outline-none focus:border-[var(--text-main)] transition-colors"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                />
               </div>
 
-              <div className="flex items-center justify-between p-2">
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-bold text-[var(--text-main)]">Birth Year</span>
-                  <span className="text-sm text-[var(--text-muted)] font-black ml-1">1997</span>
-                </div>
-                <button className="text-[var(--text-muted)] font-black text-[10px] uppercase tracking-[0.2em] px-5 py-2 bg-[var(--surface-hover)] border border-[var(--border-dim)] rounded-full cursor-not-allowed opacity-50">Coming Soon</button>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] ml-1">Date of Birth</label>
+                <input 
+                  type="date" 
+                  className="w-full bg-[var(--surface)] border border-[var(--border-dim)] rounded-2xl px-5 py-3 text-sm focus:outline-none focus:border-[var(--text-main)] transition-colors"
+                  value={editDob}
+                  onChange={(e) => setEditDob(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] ml-1">Profession</label>
+                <select 
+                  className="w-full bg-[var(--surface)] border border-[var(--border-dim)] rounded-2xl px-5 py-3 text-sm focus:outline-none focus:border-[var(--text-main)] transition-colors cursor-pointer"
+                  value={editProfession}
+                  onChange={(e) => {
+                    setEditProfession(e.target.value);
+                    setIsOtherProfession(e.target.value === 'Other');
+                  }}
+                >
+                  <option value="Software Engineer">Software Engineer</option>
+                  <option value="Data Scientist">Data Scientist</option>
+                  <option value="Designer">Designer</option>
+                  <option value="Student">Student</option>
+                  <option value="Marketer">Marketer</option>
+                  <option value="Entrepreneur">Entrepreneur</option>
+                  <option value="Content Creator">Content Creator</option>
+                  <option value="Other">Other</option>
+                </select>
+
+                {isOtherProfession && (
+                  <input 
+                    type="text" 
+                    placeholder="Enter custom profession"
+                    className="w-full bg-[var(--surface)] border border-[var(--border-dim)] rounded-2xl px-5 py-3 text-sm focus:outline-none focus:border-[var(--text-main)] transition-colors mt-2 animate-in fade-in slide-in-from-top-2"
+                    value={customProfession}
+                    onChange={(e) => setCustomProfession(e.target.value)}
+                  />
+                )}
+              </div>
+
+              <div className="pt-4">
+                <button 
+                  onClick={handleSaveProfile}
+                  disabled={isSaving}
+                  className="w-full py-4 bg-[var(--text-main)] text-[var(--background)] rounded-2xl text-xs font-black uppercase tracking-widest hover:opacity-90 transition-all disabled:opacity-50"
+                >
+                  {isSaving ? 'Saving Changes...' : 'Save Profile Changes'}
+                </button>
               </div>
             </div>
 
